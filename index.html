@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>나의 플래너</title>
+<meta name="description" content="프랭클린 플래너 방식의 할 일·일정 관리 앱 (PC·휴대폰 동기화)">
+<meta name="theme-color" content="#1F4D3C">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="플래너">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap">
+<style>
+/* ───────── 색상·글꼴 (여기 값만 바꾸면 전체 색이 바뀝니다) ───────── */
+:root{
+  --paper:#FCFAF4; --paper-2:#F5EFE0; --paper-3:#EEE6D1;
+  --line:#E7DDC8; --line-2:#D6C7A7; --rule:#C7B48C;
+  --ink:#26241F; --ink-2:#575247; --ink-3:#8C8576; --ink-4:#B5AD9D;
+  --green:#1F4D3C; --green-2:#2D6650; --green-tint:#E5EEE6;
+  --wine:#8A2B2B; --wine-tint:#F6E7E4;
+  --gold:#A47B33; --gold-tint:#F7EEDA;
+  --slate:#4A5E70; --slate-tint:#E7EDF2;
+  --leather:#3A2D24;
+  --A:var(--wine); --B:var(--green); --C:var(--slate);
+  --serif:"Noto Serif KR","Noto Serif CJK KR","Nanum Myeongjo","AppleMyungjo","Batang",serif;
+  --sans:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --row:48px;
+  --top-h:calc(56px + env(safe-area-inset-top));
+  --shadow:0 1px 2px rgba(40,30,20,.08),0 10px 30px rgba(40,30,20,.14);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;min-height:100dvh;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;word-break:keep-all;overflow-wrap:break-word;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--green-2);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* ───────── 상단 막대 ───────── */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;height:var(--top-h);padding:env(safe-area-inset-top) 10px 0;background:var(--green);color:#F3EEDF}
+.brand{flex:1;font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.02em;white-space:nowrap}
+.icon-btn{width:42px;height:42px;border:0;background:transparent;border-radius:10px;display:grid;place-items:center;color:inherit;padding:0}
+.icon-btn:hover{background:rgba(255,255,255,.12)}
+.icon-btn svg{width:22px;height:22px}
+.sync{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.13);white-space:nowrap}
+.sync .dot{width:8px;height:8px;border-radius:50%;background:#C9C2B3}
+.sync[data-s="synced"] .dot{background:#86D7A2}
+.sync[data-s="saving"] .dot,.sync[data-s="connecting"] .dot{background:#F2C14E}
+.sync[data-s="local"] .dot{background:#E2D6BA}
+
+/* ───────── 바인더(종이) ───────── */
+.binder{position:relative;background:var(--paper)}
+.spine,.minical,.month-tabs{display:none}
+
+/* 날짜 머리글 */
+.date-head{display:flex;align-items:center;gap:12px;padding:14px 16px 10px;border-bottom:3px double var(--rule)}
+.date-block{display:flex;align-items:center;gap:12px;flex:1;min-width:0;border:0;background:transparent;padding:0;text-align:left}
+.day-num{font-family:var(--serif);font-weight:700;font-size:46px;line-height:1;color:var(--green);min-width:1.25em;text-align:center}
+.day-meta{min-width:0}
+.day-month{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.3}
+.wd.sun{color:var(--wine)} .wd.sat{color:var(--slate)}
+.day-year{font-size:12.5px;color:var(--ink-3);letter-spacing:.01em}
+.nav-group{display:flex;gap:6px;flex:none}
+.nav-btn{height:40px;min-width:40px;padding:0 10px;border:1px solid var(--line-2);background:#fff;border-radius:9px;font-size:15px;display:grid;place-items:center}
+.nav-btn svg{width:18px;height:18px}
+.nav-btn.today{font-weight:700;color:var(--green)}
+.nav-btn.today.is-today{background:var(--green-tint);border-color:#C7D9CC}
+
+.quote{margin:10px 16px 0;padding:4px 0 4px 12px;border-left:3px solid var(--gold);font-family:var(--serif);color:var(--ink-2);font-size:14px;line-height:1.55}
+.quote cite{font-style:normal;color:var(--ink-3);font-size:12px;margin-left:4px;white-space:nowrap}
+.mission-line{margin:6px 16px 0;font-size:13px;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mission-line b{font-weight:700;margin-right:6px}
+
+/* 알림 띠 */
+.banner{margin:10px 16px 0;padding:10px 12px;border-radius:10px;background:var(--gold-tint);border:1px solid #E8D7AF;font-size:14px;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.banner .msg{flex:1 1 220px}
+.banner b{color:var(--wine)}
+.banner .actions{display:flex;gap:6px;flex-wrap:wrap}
+.banner.local{background:var(--slate-tint);border-color:#CDD8E2}
+.btn{height:38px;padding:0 13px;border-radius:9px;border:1px solid var(--line-2);background:#fff;font-size:14px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--ink-4)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-2)}
+.btn.danger{color:var(--wine);border-color:#E3C6C1}
+.btn.small{height:32px;padding:0 10px;font-size:13px}
+
+/* 휴대폰용 탭 */
+.tabs{position:sticky;top:var(--top-h);z-index:10;display:flex;gap:4px;margin:0;padding:8px 16px;background:var(--paper)}
+.tabs-in{display:flex;gap:4px;flex:1;padding:4px;background:var(--paper-2);border:1px solid var(--line);border-radius:11px}
+.tabs button{flex:1;height:38px;border:0;background:transparent;border-radius:8px;font-weight:500;color:var(--ink-2);font-size:15px}
+.tabs button.on{background:#fff;color:var(--green);box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:700}
+.tabs .cnt{font-size:12px;color:var(--ink-3);margin-left:4px;font-weight:500}
+
+/* 패널 공통 */
+.panel{padding:6px 16px 22px}
+.panel-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;border-bottom:2px solid var(--green);padding:8px 0 6px}
+.panel-head h2{margin:0;font-family:var(--serif);font-size:17px;font-weight:700;color:var(--green)}
+.panel-head .en{font-family:var(--serif);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.panel-head .aside{margin-left:auto;font-size:12.5px;color:var(--ink-3)}
+
+/* 할 일 추가 */
+.add{display:flex;gap:6px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:9px;overflow:hidden;background:#fff;flex:none}
+.seg button{width:38px;height:42px;border:0;background:transparent;font-family:var(--serif);font-weight:700;font-size:15.5px;color:var(--ink-3);padding:0}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on[data-pri="A"]{background:var(--A);color:#fff}
+.seg button.on[data-pri="B"]{background:var(--B);color:#fff}
+.seg button.on[data-pri="C"]{background:var(--C);color:#fff}
+.add input{flex:1;min-width:0;height:42px;border:1px solid var(--line-2);border-radius:9px;padding:0 12px;background:#fff;font-size:16px}
+.add input:focus{outline:2px solid var(--green-2);outline-offset:-1px}
+.add .btn-add{height:42px;padding:0 15px;border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:700;flex:none}
+
+/* 할 일 목록 (인쇄된 양식 느낌) */
+.cols{display:grid;grid-template-columns:38px 40px 1fr 34px;font-family:var(--serif);font-size:10px;letter-spacing:.14em;color:var(--ink-3);padding:8px 0 4px;border-bottom:1px solid var(--line-2)}
+.cols span:nth-child(1),.cols span:nth-child(2){text-align:center}
+.task-list{list-style:none;margin:0;padding:0}
+.task{display:grid;grid-template-columns:38px 40px 1fr 34px;align-items:center;min-height:var(--row);border-bottom:1px solid var(--line)}
+.task .st{justify-self:center;width:27px;height:27px;border:1.6px solid var(--ink-4);border-radius:6px;background:#fff;display:grid;place-items:center;font-size:15px;font-weight:700;line-height:1;padding:0}
+.task .st:hover{border-color:var(--ink-3)}
+.task.st-done .st{border-color:var(--green);color:var(--green);background:var(--green-tint)}
+.task.st-prog .st{border-color:var(--gold);color:var(--gold);font-size:12px}
+.task.st-fwd .st{border-color:var(--slate);color:var(--slate)}
+.task.st-del .st{border-color:var(--wine);color:var(--wine)}
+.task.st-deleg .st{border-color:var(--green-2)}
+.st .ini{display:grid;place-items:center;width:20px;height:20px;border:1.5px solid var(--green-2);border-radius:50%;font-size:10.5px;color:var(--green-2);font-weight:700}
+.task .pri{text-align:center;font-family:var(--serif);font-weight:700;font-size:15px}
+.pri-A .pri{color:var(--A)} .pri-B .pri{color:var(--B)} .pri-C .pri{color:var(--C)}
+.task .body{padding:8px 4px;cursor:pointer;min-width:0}
+.task .txt{font-size:16px;line-height:1.4}
+.task .meta{font-size:12px;color:var(--ink-3);margin-top:2px}
+.task .meta .warn{color:var(--wine)}
+.task.st-done .txt,.task.st-fwd .txt{color:var(--ink-3)}
+.task.st-del .txt{color:var(--ink-3);text-decoration:line-through}
+.task .more{justify-self:center;width:32px;height:32px;border:0;background:transparent;color:var(--ink-4);border-radius:7px;font-size:18px;padding:0;line-height:1}
+.task .more:hover{color:var(--ink);background:var(--paper-2)}
+.task-list .empty{padding:22px 8px;color:var(--ink-3);font-size:14.5px;text-align:center;border-bottom:1px solid var(--line);line-height:1.7}
+.task-list .blank{display:none;height:var(--row);border-bottom:1px solid var(--line);cursor:text}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;padding:10px 2px 0;font-size:12.5px;color:var(--ink-3)}
+.legend b{font-weight:700;color:var(--ink-2);margin-right:3px}
+.ini-demo{display:inline-grid;place-items:center;width:18px;height:18px;border:1.5px solid var(--green-2);border-radius:50%;font-size:10px;line-height:1;color:var(--green-2)!important;font-weight:700;vertical-align:-4px;margin-right:4px}
+.sym-table .ini-demo{width:24px;height:24px;font-size:12px;margin:0;vertical-align:middle}
+
+/* 일정 */
+.sched-list{border-top:0}
+.sched-row{display:grid;grid-template-columns:52px 1fr;align-items:center;min-height:var(--row);border-bottom:1px solid var(--line);position:relative}
+.sched-row .hh{font-family:var(--serif);font-weight:600;color:var(--ink-2);font-size:15px;text-align:right;padding-right:12px}
+.sched-row .hh small{font-size:10.5px;color:var(--ink-3);margin-left:1px;font-weight:400}
+.sched-row input{border:0;background:transparent;height:calc(var(--row) - 8px);padding:0 8px;font-size:16px;width:100%;min-width:0;border-radius:7px}
+.sched-row input:focus{outline:none;background:#fff;box-shadow:inset 0 0 0 1.5px var(--green-2)}
+.sched-row.now .hh{color:var(--wine)}
+.sched-row.now::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--wine);border-radius:2px}
+
+/* 메모 (줄 노트) */
+.notes-area{--lh:34px;display:block;width:100%;min-height:62vh;border:0;resize:vertical;padding:1px 4px 0;margin-top:4px;background-color:transparent;line-height:var(--lh);font-size:16px;background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 1px),var(--line) calc(var(--lh) - 1px));background-size:100% var(--lh);background-attachment:local}
+.notes-area:focus{outline:none}
+
+/* 휴대폰: 탭에 따라 한 패널만 */
+@media (max-width:899px){.mission-card{display:none!important}}
+.spread[data-tab="tasks"] .panel.sched,.spread[data-tab="tasks"] .panel.notes{display:none}
+.spread[data-tab="sched"] .panel.tasks,.spread[data-tab="sched"] .panel.notes{display:none}
+.spread[data-tab="notes"] .panel.tasks,.spread[data-tab="notes"] .panel.sched{display:none}
+
+/* 미니 달력 */
+.minical .mc-head{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--serif);font-weight:700;color:var(--green);font-size:14px;margin:12px 0 4px}
+.minical .mc-head button{border:0;background:transparent;font-size:12px;color:var(--ink-3);font-family:var(--sans);font-weight:500;padding:2px 4px}
+.minical table{border-collapse:collapse;width:100%;max-width:300px;table-layout:fixed}
+.minical th{font-size:10.5px;color:var(--ink-3);font-weight:500;padding:2px 0}
+.minical th:first-child{color:var(--wine)} .minical th:last-child{color:var(--slate)}
+.minical td{text-align:center;padding:1px 0}
+.minical td button{width:30px;height:28px;border:0;background:transparent;border-radius:7px;font-size:12.5px;position:relative;padding:0}
+.minical td button:hover{background:var(--paper-2)}
+.minical td button.has::after{content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--wine)}
+.minical td button.today{color:var(--wine);font-weight:700}
+.minical td button.sel{background:var(--green);color:#fff}
+.minical td button.sel::after{background:#fff}
+.minical td.out button{color:var(--ink-4)}
+.mission-card{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:8px;background:#fff;font-size:13.5px;color:var(--ink-2);white-space:pre-line}
+.mission-card .lbl{display:block;font-family:var(--serif);font-weight:700;color:var(--green);font-size:12.5px;margin-bottom:2px}
+
+/* ───────── 월간 보기 ───────── */
+.month-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;border-bottom:3px double var(--rule)}
+.month-head h2{margin:0;font-family:var(--serif);font-size:22px;color:var(--green);flex:1}
+.mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin:10px 10px 8px;border-top:1px solid var(--line-2);border-left:1px solid var(--line-2)}
+.mgrid .wd{padding:6px 0;text-align:center;font-size:12px;color:var(--ink-3);border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);background:var(--paper-2)}
+.mgrid .wd.sun{color:var(--wine)} .mgrid .wd.sat{color:var(--slate)}
+.mgrid .cell{min-height:68px;border:0;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:4px 4px 5px;text-align:left;background:#fff;display:flex;flex-direction:column;gap:2px;font-size:12px;min-width:0}
+.mgrid .cell:hover{background:var(--paper)}
+.cell .dn{font-family:var(--serif);font-weight:600;font-size:13px;width:22px;height:22px;display:grid;place-items:center}
+.cell.sun .dn{color:var(--wine)} .cell.sat .dn{color:var(--slate)}
+.cell.today .dn{color:#fff;background:var(--wine);border-radius:50%}
+.cell.sel{box-shadow:inset 0 0 0 2px var(--green)}
+.cell .cnt-line{font-size:11.5px;line-height:1.35}
+.cell .c-open{color:var(--wine);font-weight:700}
+.cell .c-done{color:var(--green)}
+.cell .t{display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--ink-2)}
+.cell.blank{background:var(--paper-2);cursor:default}
+.month-legend{margin:0 12px 24px;font-size:12.5px;color:var(--ink-3)}
+
+/* ───────── 일반 페이지 (미처리·가치·사용법) ───────── */
+.page-wrap{max-width:780px;margin:0 auto;padding:6px 16px 32px}
+.page-title{padding:14px 0 10px;border-bottom:3px double var(--rule);margin-bottom:8px}
+.page-title h2{margin:0;font-family:var(--serif);font-size:22px;color:var(--green)}
+.page-title p{margin:6px 0 0;color:var(--ink-2);font-size:14px}
+.pend-group h3{font-family:var(--serif);font-size:14.5px;color:var(--ink-2);margin:16px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line-2)}
+.pend-item{display:grid;grid-template-columns:40px 1fr auto;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.pend-item .pri{text-align:center;font-family:var(--serif);font-weight:700}
+.pend-item .acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.pend-empty{padding:30px 0;text-align:center;color:var(--ink-3)}
+.vfield{display:block;margin:18px 0 0}
+.vfield .vl{display:block;font-family:var(--serif);font-weight:700;color:var(--green);font-size:16px}
+.vfield .vl em{font-style:normal;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-left:6px;font-weight:400}
+.vfield .vh{display:block;font-size:13px;color:var(--ink-3);margin:2px 0 6px}
+.vfield textarea{width:100%;border:1px solid var(--line-2);border-radius:9px;padding:10px 12px;background:#fff;font-size:16px;line-height:1.6;resize:vertical}
+.saved-note{font-size:12.5px;color:var(--ink-3);min-height:1.4em;margin-top:10px}
+.help h3{font-family:var(--serif);color:var(--green);font-size:17px;margin:22px 0 6px}
+.help p,.help li{font-size:15px;color:var(--ink-2)}
+.help ol,.help ul{padding-left:20px;margin:6px 0}
+.help li{margin:4px 0}
+.sym-table{width:100%;border-collapse:collapse;margin:6px 0;font-size:14.5px}
+.sym-table td{border-bottom:1px solid var(--line);padding:8px 6px;vertical-align:top}
+.sym-table td:first-child{width:54px;text-align:center;font-weight:700;font-size:17px}
+.kbd{display:inline-block;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:12.5px;background:#fff}
+
+/* ───────── 메뉴 서랍 ───────── */
+.drawer{position:fixed;inset:0;z-index:40}
+.backdrop{position:absolute;inset:0;background:rgba(25,18,12,.38)}
+.drawer-panel{position:absolute;top:0;bottom:0;left:0;width:min(310px,86vw);background:var(--paper);padding:calc(14px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom));box-shadow:6px 0 26px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:auto;animation:slideIn .18s ease-out}
+@keyframes slideIn{from{transform:translateX(-24px);opacity:.5}to{transform:none;opacity:1}}
+.drawer-head{padding:6px 10px 12px;border-bottom:3px double var(--rule);margin-bottom:6px}
+.drawer-head .t{font-family:var(--serif);font-weight:700;font-size:19px;color:var(--green)}
+.drawer-head .who{font-size:12.5px;color:var(--ink-3);margin-top:2px;word-break:break-all}
+.drawer nav{display:flex;flex-direction:column}
+.drawer nav button{display:flex;align-items:center;gap:12px;width:100%;height:46px;border:0;background:transparent;border-radius:9px;padding:0 10px;font-size:15.5px;text-align:left}
+.drawer nav button:hover{background:var(--paper-2)}
+.drawer nav .ic{width:22px;text-align:center;font-family:var(--serif);color:var(--green);font-weight:700}
+.drawer nav hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+.drawer .badge{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--wine);color:#fff;font-size:12px;display:grid;place-items:center}
+.drawer-foot{margin-top:auto;padding:12px 10px 0;font-size:12px;color:var(--ink-4)}
+
+/* ───────── 편집 시트 ───────── */
+.sheet{position:fixed;inset:0;z-index:50}
+.sheet-card{position:absolute;left:0;right:0;bottom:0;max-height:90vh;max-height:90dvh;overflow:auto;background:var(--paper);border-radius:18px 18px 0 0;padding:6px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px rgba(0,0,0,.22);animation:sheetUp .18s ease-out}
+@keyframes sheetUp{from{transform:translateY(28px);opacity:.6}to{transform:none;opacity:1}}
+.sheet-grab{width:42px;height:5px;border-radius:3px;background:var(--line-2);margin:4px auto 6px}
+.sheet-head{display:flex;align-items:center;gap:8px;padding:4px 0 8px;border-bottom:1px solid var(--line)}
+.sheet-head .t{flex:1;font-family:var(--serif);font-weight:700;color:var(--green);font-size:17px}
+.sheet-head .lbl{font-family:var(--serif);font-weight:700;font-size:16px;padding:2px 8px;border-radius:6px;background:var(--paper-2)}
+.edit-text{width:100%;margin-top:12px;border:1px solid var(--line-2);border-radius:9px;padding:10px 12px;background:#fff;font-size:16px;line-height:1.5;resize:none}
+.field{margin-top:14px}
+.field .flbl{display:block;font-size:12.5px;color:var(--ink-3);margin-bottom:6px;font-weight:500}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.status-grid button{height:44px;border:1px solid var(--line-2);border-radius:9px;background:#fff;font-size:14.5px;padding:0 4px}
+.status-grid button .s{font-weight:700;margin-right:4px}
+.status-grid button.on{border-color:var(--green);background:var(--green-tint);color:var(--green);font-weight:700}
+.status-grid button:disabled{cursor:default}
+.status-grid button:disabled:not(.on){opacity:.45}
+.sub-row{margin-top:8px}
+.text-in,.date-in{height:42px;border:1px solid var(--line-2);border-radius:9px;padding:0 10px;background:#fff;font-size:16px;flex:1;min-width:150px}
+.fwd-info{font-size:14px;color:var(--slate);background:var(--slate-tint);border-radius:9px;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sheet-foot{display:flex;justify-content:space-between;gap:8px;margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
+
+/* ───────── 전체 화면 카드 (로그인·설정 오류·불러오는 중) ───────── */
+.overlay{position:fixed;inset:0;z-index:60;background:var(--green);display:flex;align-items:center;justify-content:center;padding:24px 18px;overflow:auto}
+.card{width:min(430px,100%);background:var(--paper);border-radius:16px;padding:26px 22px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3);margin:auto}
+.card .logo{width:54px;height:54px;border-radius:14px;display:block}
+.card h1{font-family:var(--serif);color:var(--green);margin:12px 0 6px;font-size:23px}
+.card p{color:var(--ink-2);font-size:14.5px;margin:0 0 12px}
+.card label{display:block;font-size:13px;color:var(--ink-2);margin:12px 0 4px;font-weight:500}
+.card input{width:100%;height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;background:#fff;font-size:16px}
+.card .btn{width:100%;height:48px;margin-top:10px;font-size:15.5px}
+.card ol{padding-left:20px;margin:6px 0 12px;color:var(--ink-2);font-size:14px}
+.card code{background:var(--paper-2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:13px}
+.err{color:var(--wine);font-size:13.5px;min-height:1.3em;margin-top:8px;white-space:pre-line}
+.linkbtn{display:block;margin:12px auto 0;border:0;background:transparent;color:var(--slate);text-decoration:underline;font-size:13.5px}
+.splash{position:fixed;inset:0;z-index:65;background:var(--green);color:#EFE8D6;display:grid;place-items:center;font-family:var(--serif);font-size:16px}
+
+/* 알림 메시지 */
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:80;background:#2B2A26;color:#F6F1E3;padding:11px 15px;border-radius:11px;font-size:14px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:center;width:max-content;max-width:calc(100vw - 32px)}
+.toast.error{background:var(--wine)}
+.toast button{border:0;background:transparent;color:#F2C14E;font-weight:700;padding:0;flex:none}
+
+/* ───────── PC 화면 (넓은 화면): 펼친 플래너 ───────── */
+@media (min-width:900px){
+  :root{--row:41px}
+  body{background-color:var(--leather);background-image:radial-gradient(ellipse at 50% 0%,#55443A 0%,#3A2D24 55%,#2A2019 100%);background-attachment:fixed}
+  .topbar{position:static;background:transparent;max-width:1280px;margin:0 auto;padding:12px 22px 4px;height:auto}
+  .binder{max-width:1280px;margin:4px auto 36px;border-radius:14px;box-shadow:0 2px 0 #E2D8C2,0 4px 0 #D3C6A8,0 6px 0 #C7B892,0 24px 60px rgba(0,0,0,.5)}
+  .tabs{display:none}
+  .date-head{padding:18px 28px 12px}
+  .day-num{font-size:54px}
+  .quote,.mission-line,.banner{margin-left:28px;margin-right:28px}
+  .spread{display:grid;grid-template-columns:minmax(0,1.5fr) 44px minmax(0,1fr);margin-top:6px}
+  .spread .panel{display:block!important}
+  .panel{padding:6px 22px 26px}
+  .left-page{min-width:0}
+  .right-page{min-width:0}
+  .spine{display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;background:linear-gradient(90deg,rgba(80,60,40,0) 0%,rgba(80,60,40,.10) 40%,rgba(80,60,40,.18) 50%,rgba(80,60,40,.10) 60%,rgba(80,60,40,0) 100%)}
+  .spine i{display:block;width:40px;height:11px;border-radius:6px;background:linear-gradient(180deg,#F4F2EC 0%,#B9B3A8 45%,#8F897E 55%,#E6E2D9 100%);box-shadow:0 1px 2px rgba(0,0,0,.35)}
+  .minical{display:block}
+  .task-list .blank{display:block}
+  .notes-area{--lh:31px;min-height:520px}
+  .mgrid{margin:12px 22px 10px}
+  .mgrid .cell{min-height:112px;padding:6px}
+  .cell .t{display:block}
+  .month-legend{margin:0 24px 26px}
+  .page-wrap{padding:6px 28px 36px}
+  .sheet .sheet-card{left:50%;top:50%;bottom:auto;right:auto;width:540px;max-height:88vh;transform:translate(-50%,-50%);border-radius:16px;animation:none;padding:10px 22px 20px}
+  .sheet-grab{display:none}
+}
+@media (min-width:1200px){
+  .left-page{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+  .left-page .panel.sched{border-left:1px solid var(--line)}
+}
+@media (min-width:1380px){
+  .month-tabs{display:flex;flex-direction:column;gap:3px;position:absolute;top:120px;right:-36px}
+  .month-tabs button{width:36px;height:38px;border:0;border-radius:0 9px 9px 0;background:#E8DEC6;color:var(--ink-2);font-family:var(--serif);font-size:12px;font-weight:700;box-shadow:2px 1px 4px rgba(0,0,0,.3);padding:0 0 0 4px;text-align:left}
+  .month-tabs button:nth-child(odd){background:#DFD3B6}
+  .month-tabs button.cur{background:var(--green);color:#fff}
+  .month-tabs button:hover{filter:brightness(1.05)}
+}
+@media print{
+  body{background:#fff}
+  .topbar,.tabs,.banner,.drawer,.sheet,.toast,.month-tabs,.add{display:none!important}
+  .binder{box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<div id="splash" class="splash">불러오는 중…</div>
+
+<header class="topbar">
+  <button id="btnMenu" class="icon-btn" aria-label="메뉴 열기">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="brand">나의 플래너</div>
+  <div id="sync" class="sync" data-s="local" role="status" aria-live="polite"><span class="dot"></span><span class="label">이 기기에만 저장</span></div>
+</header>
+
+<div id="app" class="binder" hidden>
+  <div id="monthTabs" class="month-tabs" aria-label="월 바로가기"></div>
+
+  <!-- ===== 하루 페이지 ===== -->
+  <section id="dayView" class="view">
+    <div class="date-head">
+      <button id="dateBlock" class="date-block" aria-label="월간 달력 열기">
+        <div id="dayNum" class="day-num"></div>
+        <div class="day-meta">
+          <div id="dayMonth" class="day-month"></div>
+          <div id="dayYear" class="day-year"></div>
+        </div>
+      </button>
+      <div class="nav-group">
+        <button id="btnPrev" class="nav-btn" aria-label="전날"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button id="btnToday" class="nav-btn today">오늘</button>
+        <button id="btnNext" class="nav-btn" aria-label="다음 날"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </div>
+    <div id="quote" class="quote"></div>
+    <div id="missionLine" class="mission-line" hidden></div>
+
+    <div id="localBanner" class="banner local" hidden>
+      <div class="msg" id="localMsg"><b>미리보기 모드</b> · 지금은 이 기기(브라우저)에만 저장되고, PC·휴대폰 동기화는 되지 않습니다.</div>
+      <div class="actions"><button class="btn small" data-go="help">동기화 설정이란?</button><button class="btn small" id="btnHideLocal">닫기</button></div>
+    </div>
+    <div id="pendingBanner" class="banner" hidden>
+      <div class="msg">지난 날짜에 마무리하지 않은 할 일이 <b id="pendingCount">0</b>개 있습니다.</div>
+      <div class="actions"><button class="btn small primary" id="btnPullAll">오늘로 모두 가져오기</button><button class="btn small" data-go="pending">하나씩 보기</button></div>
+    </div>
+
+    <nav class="tabs" aria-label="보기 선택">
+      <div class="tabs-in">
+        <button data-tab="tasks" class="on">할 일<span class="cnt" id="cntTasks"></span></button>
+        <button data-tab="sched">일정<span class="cnt" id="cntSched"></span></button>
+        <button data-tab="notes">메모</button>
+      </div>
+    </nav>
+
+    <div id="spread" class="spread" data-tab="tasks">
+      <div class="left-page">
+        <section class="panel tasks">
+          <div class="panel-head"><h2>오늘의 우선 업무</h2><span class="en">Prioritized Daily Task List</span><span class="aside" id="taskProgress"></span></div>
+          <form id="addForm" class="add" autocomplete="off">
+            <div class="seg" id="addPri" role="radiogroup" aria-label="우선순위">
+              <button type="button" data-pri="A" aria-label="A: 꼭 해야 할 일">A</button><button type="button" data-pri="B" aria-label="B: 해야 할 일">B</button><button type="button" data-pri="C" aria-label="C: 하면 좋은 일">C</button>
+            </div>
+            <input id="addInput" type="text" placeholder="할 일을 적고 Enter" enterkeyhint="done" aria-label="새 할 일">
+            <button type="submit" class="btn-add">추가</button>
+          </form>
+          <div class="cols" aria-hidden="true"><span>상태</span><span>ABC</span><span>할 일</span><span></span></div>
+          <ul id="taskList" class="task-list"></ul>
+          <div class="legend"><span><b>✓</b>완료</span><span><b>●</b>진행 중</span><span><b>→</b>넘김</span><span><b class="ini-demo">김</b>위임</span><span><b>✕</b>취소</span></div>
+        </section>
+        <section class="panel sched">
+          <div class="panel-head"><h2>일정</h2><span class="en">Appointment Schedule</span></div>
+          <div id="schedList" class="sched-list"></div>
+        </section>
+      </div>
+      <div class="spine" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="right-page">
+        <section class="panel notes">
+          <div id="minical" class="minical"></div>
+          <div id="missionCard" class="mission-card" hidden></div>
+          <div class="panel-head"><h2>메모 · 일일 기록</h2><span class="en">Daily Notes</span></div>
+          <textarea id="notes" class="notes-area" placeholder="오늘 있었던 일, 회의 내용, 떠오른 생각을 자유롭게 적습니다." aria-label="메모"></textarea>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 월간 달력 ===== -->
+  <section id="monthView" class="view" hidden>
+    <div class="month-head">
+      <h2 id="monthTitle"></h2>
+      <div class="nav-group">
+        <button id="mPrev" class="nav-btn" aria-label="이전 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button id="mToday" class="nav-btn today">이번 달</button>
+        <button id="mNext" class="nav-btn" aria-label="다음 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </div>
+    <div id="mgrid" class="mgrid"></div>
+    <p class="month-legend">날짜를 누르면 그날 페이지로 갑니다. <b style="color:var(--wine)">●</b> 남은 할 일 · <b style="color:var(--green)">✓</b> 완료한 할 일</p>
+  </section>
+
+  <!-- ===== 미처리 할 일 ===== -->
+  <section id="pendingView" class="view" hidden>
+    <div class="page-wrap">
+      <div class="page-title"><h2>미처리 할 일</h2><p>지난 날짜에 적었지만 완료·넘김·위임·취소 중 무엇도 표시하지 않은 할 일입니다. 프랭클린 방식에서는 하루가 끝나면 모든 할 일에 기호를 붙여 정리합니다.</p></div>
+      <div class="row" style="margin:6px 0 4px"><button class="btn primary" id="btnPullAll2">모두 오늘로 가져오기</button></div>
+      <div id="pendList"></div>
+    </div>
+  </section>
+
+  <!-- ===== 사명·가치·목표 ===== -->
+  <section id="valuesView" class="view" hidden>
+    <div class="page-wrap">
+      <div class="page-title"><h2>사명 · 가치 · 목표</h2><p>프랭클린 방식의 출발점입니다. 무엇이 가장 중요한지 적어 두면 매일의 우선순위(A·B·C)를 정하기가 쉬워집니다.</p></div>
+      <label class="vfield"><span class="vl">나의 사명<em>Mission Statement</em></span><span class="vh">어떤 사람으로, 무엇을 위해 살고 싶은지 한두 문장으로 적습니다. 첫 줄은 매일 페이지에 표시됩니다.</span><textarea data-field="mission" rows="3"></textarea></label>
+      <label class="vfield"><span class="vl">지배 가치<em>Governing Values</em></span><span class="vh">가장 소중한 가치를 중요한 순서대로 적습니다. 예) 1. 가족과 보내는 시간  2. 건강  3. 성실하게 일하기</span><textarea data-field="values" rows="5"></textarea></label>
+      <label class="vfield"><span class="vl">장기 목표<em>Long-range Goals</em></span><span class="vh">가치를 이루기 위한 1~5년 목표입니다.</span><textarea data-field="goals" rows="4"></textarea></label>
+      <label class="vfield"><span class="vl">중간 목표 (이번 달 · 이번 주)<em>Intermediate Goals</em></span><span class="vh">장기 목표로 가는 가까운 단계입니다. 여기서 매일의 A 업무가 나옵니다.</span><textarea data-field="near" rows="4"></textarea></label>
+      <p class="saved-note" id="valuesSaved"></p>
+    </div>
+  </section>
+
+  <!-- ===== 사용법 ===== -->
+  <section id="helpView" class="view" hidden>
+    <div class="page-wrap help">
+      <div class="page-title"><h2>사용법 · 기호 안내</h2><p>프랭클린 플래너의 하루 계획 방식을 그대로 옮겼습니다.</p></div>
+      <h3>하루 사용 순서</h3>
+      <ol>
+        <li><b>아침 10분 계획</b> — 오늘 할 일을 모두 적습니다.</li>
+        <li><b>A·B·C 정하기</b> — A는 오늘 꼭 해야 할 일, B는 해야 하지만 덜 급한 일, C는 하면 좋은 일입니다.</li>
+        <li><b>순서 정하기</b> — 같은 글자 안에서 먼저 할 일을 위로 올립니다(편집 화면의 ▲▼). A1이 오늘 가장 먼저 할 일입니다.</li>
+        <li><b>A1부터 차례로</b> — 끝낸 일은 왼쪽 네모를 눌러 ✓ 표시합니다.</li>
+        <li><b>저녁 정리</b> — 남은 일은 모두 기호로 정리합니다. 다른 날로 넘기거나(→), 맡기거나(위임), 하지 않기로 합니다(✕). 다음 날 처리하지 않은 일이 있으면 화면 위에 알림이 뜹니다.</li>
+      </ol>
+      <h3>상태 기호</h3>
+      <table class="sym-table">
+        <tr><td style="color:var(--green)">✓</td><td><b>완료</b> — 끝낸 일. 왼쪽 네모를 한 번 누르면 됩니다(다시 누르면 취소).</td></tr>
+        <tr><td style="color:var(--gold)">●</td><td><b>진행 중</b> — 시작했지만 아직 끝나지 않은 일.</td></tr>
+        <tr><td style="color:var(--slate)">→</td><td><b>넘김</b> — 다른 날로 옮긴 일. 그날 목록에 자동으로 다시 적힙니다.</td></tr>
+        <tr><td><span class="ini-demo">김</span></td><td><b>위임</b> — 다른 사람에게 맡긴 일. 동그라미 안에 그 사람 이름의 첫 글자가 표시됩니다.</td></tr>
+        <tr><td style="color:var(--wine)">✕</td><td><b>취소</b> — 더 이상 할 필요가 없어진 일. 기록은 남깁니다.</td></tr>
+      </table>
+      <p>할 일 글자를 누르면 편집 화면이 열립니다. 여기서 내용, A·B·C, 순서, 상태, 넘길 날짜를 바꿉니다.</p>
+      <h3>일정 · 메모</h3>
+      <p>‘일정’에는 시간별 약속을, ‘메모’에는 그날의 기록을 적습니다. 적는 즉시 자동 저장됩니다.</p>
+      <h3>동기화</h3>
+      <p>Firebase 설정(config.js)을 마치고 PC와 휴대폰에서 <b>같은 계정</b>으로 로그인하면, 한쪽에서 적은 내용이 다른 쪽에 바로 나타납니다. 인터넷이 끊겨도 계속 쓸 수 있고, 다시 연결되면 자동으로 맞춰집니다. 오른쪽 위 표시가 <b>동기화됨</b>이면 저장이 끝난 것입니다.</p>
+      <p>설정 전(미리보기 모드)에는 지금 쓰는 기기에만 저장됩니다.</p>
+      <h3>백업</h3>
+      <p>메뉴의 ‘백업 파일 저장’으로 모든 내용을 파일 하나로 내려받을 수 있습니다. ‘백업 파일 불러오기’로 다시 넣을 수 있습니다. 미리보기 모드에서 쓴 내용을 동기화 계정으로 옮길 때도 이 방법을 씁니다.</p>
+      <h3>PC 단축키</h3>
+      <ul>
+        <li><span class="kbd">←</span> <span class="kbd">→</span> 전날 · 다음 날</li>
+        <li><span class="kbd">T</span> 오늘로 이동</li>
+        <li><span class="kbd">N</span> 새 할 일 입력칸으로 이동</li>
+        <li><span class="kbd">Esc</span> 열린 창 닫기</li>
+      </ul>
+      <p style="margin-top:22px;color:var(--ink-3);font-size:13px">하루 페이지 위의 명언은 벤저민 프랭클린의 글(『가난한 리처드의 달력』, 『자서전』의 13가지 덕목 등)을 우리말로 옮긴 것입니다.</p>
+    </div>
+  </section>
+</div>
+
+<!-- ===== 메뉴 서랍 ===== -->
+<aside id="drawer" class="drawer" hidden>
+  <div class="backdrop" data-close="drawer"></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="메뉴">
+    <div class="drawer-head"><div class="t">나의 플래너</div><div class="who" id="whoLine">이 기기에만 저장</div></div>
+    <nav>
+      <button data-go="day"><span class="ic">日</span>오늘 페이지</button>
+      <button data-go="month"><span class="ic">月</span>월간 달력</button>
+      <button data-go="pending"><span class="ic">→</span>미처리 할 일<span class="badge" id="pendingBadge" hidden></span></button>
+      <button data-go="values"><span class="ic">★</span>사명 · 가치 · 목표</button>
+      <button data-go="help"><span class="ic">?</span>사용법 · 기호 안내</button>
+      <hr>
+      <button id="btnExport"><span class="ic">↓</span>백업 파일 저장</button>
+      <button id="btnImport"><span class="ic">↑</span>백업 파일 불러오기</button>
+      <button id="btnLogout" hidden><span class="ic">⎋</span>로그아웃</button>
+    </nav>
+    <div class="drawer-foot">나의 플래너 v1.0</div>
+  </div>
+</aside>
+<input id="importFile" type="file" accept=".json,application/json" hidden>
+
+<!-- ===== 할 일 편집 시트 ===== -->
+<div id="sheet" class="sheet" hidden>
+  <div class="backdrop" data-close="sheet"></div>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><span id="sheetLabel" class="lbl"></span><span id="sheetTitle" class="t">할 일 편집</span><button class="btn small" data-close="sheet">닫기</button></div>
+    <textarea id="editText" class="edit-text" rows="2" aria-label="할 일 내용"></textarea>
+    <div class="field">
+      <span class="flbl">우선순위와 순서</span>
+      <div class="row">
+        <div class="seg" id="editPri"><button type="button" data-pri="A">A</button><button type="button" data-pri="B">B</button><button type="button" data-pri="C">C</button></div>
+        <button class="btn" id="btnUp">▲ 위로</button>
+        <button class="btn" id="btnDown">▼ 아래로</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="flbl">상태</span>
+      <div class="status-grid" id="statusGrid">
+        <button data-st="open"><span class="s">□</span>미완료</button>
+        <button data-st="done"><span class="s">✓</span>완료</button>
+        <button data-st="prog"><span class="s">●</span>진행 중</button>
+        <button data-st="deleg"><span class="s">○</span>위임</button>
+        <button data-st="del"><span class="s">✕</span>취소</button>
+        <button data-st="fwd"><span class="s">→</span>넘김</button>
+      </div>
+      <div id="delegRow" class="row sub-row" hidden>
+        <input id="whoInput" class="text-in" type="text" placeholder="누구에게 맡겼나요? (예: 김대리)" maxlength="40">
+        <button class="btn primary" id="btnDelegSave">위임 저장</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="flbl">→ 다른 날로 넘기기</span>
+      <div id="fwdRow" class="row">
+        <button class="btn" id="btnFwdTomorrow">다음 날로</button>
+        <input id="fwdDate" class="date-in" type="date" aria-label="넘길 날짜">
+        <button class="btn primary" id="btnFwdDate">이 날로 넘기기</button>
+      </div>
+      <div id="fwdInfo" class="fwd-info" hidden><span id="fwdInfoText"></span><button class="btn small" id="btnUnfwd">넘기기 취소</button></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn danger" id="btnRemove">완전히 지우기</button>
+      <button class="btn primary" data-close="sheet">완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 로그인 ===== -->
+<div id="login" class="overlay" hidden>
+  <div class="card">
+    <img class="logo" src="icon-192.png" alt="">
+    <h1>나의 플래너</h1>
+    <p>PC와 휴대폰에서 <b>같은 이메일·비밀번호</b>로 로그인하면 할 일이 자동으로 동기화됩니다.</p>
+    <form id="loginForm" autocomplete="on">
+      <label for="loginEmail">이메일</label>
+      <input id="loginEmail" type="email" inputmode="email" autocomplete="username" required>
+      <label for="loginPw">비밀번호 (6자 이상)</label>
+      <input id="loginPw" type="password" autocomplete="current-password" required minlength="6">
+      <div id="loginErr" class="err" role="alert"></div>
+      <button type="submit" class="btn primary" id="btnLogin">로그인</button>
+      <button type="button" class="btn" id="btnSignup">처음 사용 — 이 이메일로 계정 만들기</button>
+      <button type="button" class="linkbtn" id="btnReset">비밀번호를 잊었어요</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 설정 오류 ===== -->
+<div id="fatal" class="overlay" hidden>
+  <div class="card">
+    <h1 id="fatalTitle">설정 파일을 확인해 주세요</h1>
+    <p id="fatalMsg"></p>
+    <ol id="fatalSteps"></ol>
+    <div id="fatalDetail" class="err"></div>
+    <button class="btn" id="btnLocalAnyway">설정 없이 이 기기에서만 쓰기</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
+
+<noscript><div class="splash">이 앱은 JavaScript가 켜져 있어야 동작합니다.</div></noscript>
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+<script>
+  /* app.js나 store.js가 빠져 앱이 시작되지 않으면 안내 */
+  setTimeout(function () {
+    var s = document.getElementById('splash');
+    if (s && !s.hidden && !window.__plannerBooted) {
+      s.style.padding = '24px'; s.style.textAlign = 'center'; s.style.lineHeight = '1.7';
+      s.innerHTML = '앱을 시작하지 못했습니다.<br>GitHub 저장소에 app.js, store.js, config.js, firebase.js 등<br>모든 파일이 올라가 있는지 확인한 뒤 새로고침하십시오.';
+    }
+  }, 8000);
+</script>
+</body>
+</html>
