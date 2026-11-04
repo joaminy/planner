@@ -17,12 +17,12 @@
    ================================================================ */
 
 const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyB9e9ArW4YwR3N5tpxfefaHCnZ28rDCYl0",
+  authDomain: "my-planner-3c0e6.firebaseapp.com",
+  projectId: "my-planner-3c0e6",
+  storageBucket: "my-planner-3c0e6.firebasestorage.app",
+  messagingSenderId: "501090571282",
+  appId: "1:501090571282:web:a55c405b952ddffebcf4cb"
 };
 
 /* ▼▼▼ 이 아래 줄은 고치거나 지우지 마십시오 ▼▼▼ */
