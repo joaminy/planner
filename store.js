@@ -54,6 +54,8 @@
     ['mission', 'values', 'goals', 'near'].forEach(function (k) {
       if (typeof p[k] === 'string') out[k] = p[k].slice(0, 20000);
     });
+    if (typeof p.font === 'string') out.font = p.font.slice(0, 40);
+    if (typeof p.fontAll === 'boolean') out.fontAll = p.fontAll;
     return out;
   }
 
@@ -123,10 +125,22 @@
       cb(self._tasks().filter(function (t) { return ACTIVE.indexOf(t.status) >= 0; }).map(clone));
     });
   };
+  /* (예전 버전 호환용) 기간 안의 할 일 */
   LocalStore.prototype.watchRange = function (from, to, cb) {
     var self = this;
     return this._sub(function () {
       cb(self._tasks().filter(function (t) { return t.date >= from && t.date <= to; }).map(clone));
+    });
+  };
+  /* 한 달 치 일정: { '2026-11-05': { '09': '회의', ... }, ... } */
+  LocalStore.prototype.watchSchedRange = function (from, to, cb) {
+    var self = this;
+    return this._sub(function () {
+      var days = self.data.days || {}, out = {};
+      Object.keys(days).forEach(function (date) {
+        if (date >= from && date <= to && days[date] && days[date].sched) out[date] = clone(days[date].sched);
+      });
+      cb(out);
     });
   };
   LocalStore.prototype.watchProfile = function (cb) {
@@ -317,10 +331,29 @@
       cb(docsOf(snap));
     });
   };
+  /* (예전 버전 호환용) 기간 안의 할 일 */
   FirebaseStore.prototype.watchRange = function (from, to, cb) {
     var FB = this.FB;
     return this._listen(FB.query(this.tasksCol, FB.where('date', '>=', from), FB.where('date', '<=', to)), function (snap) {
       cb(docsOf(snap));
+    });
+  };
+  /* 한 달 치 일정: days 문서의 이름(날짜)으로 범위를 정해 읽음 */
+  FirebaseStore.prototype.watchSchedRange = function (from, to, cb) {
+    var FB = this.FB;
+    if (typeof FB.documentId !== 'function') {   // firebase.js가 예전 파일일 때: 멈추지 않고 안내만
+      this._err({ code: 'old-firebase-js' }, 'listen');
+      Promise.resolve().then(function () { cb({}); });
+      return function () {};
+    }
+    var q = FB.query(this.daysCol, FB.where(FB.documentId(), '>=', from), FB.where(FB.documentId(), '<=', to));
+    return this._listen(q, function (snap) {
+      var out = {};
+      snap.docs.forEach(function (d) {
+        var v = d.data();
+        if (v && v.sched) out[d.id] = v.sched;
+      });
+      cb(out);
     });
   };
   FirebaseStore.prototype.watchProfile = function (cb) {

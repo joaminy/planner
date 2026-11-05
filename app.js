@@ -26,6 +26,16 @@
   }
   function daysInYear(y) { return ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365; }
   function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
+  /* 주차: 달력 한 줄(일요일~토요일)이 한 주입니다.
+     그 달 1일이 들어 있는 줄이 '1주차', 1월 1일이 들어 있는 주가 '올해 1주차'입니다. */
+  function weekOfMonth(s) {
+    var d = parse(s);
+    return Math.floor((d.getDate() - 1 + new Date(d.getFullYear(), d.getMonth(), 1).getDay()) / 7) + 1;
+  }
+  function weekOfYear(s) {
+    var d = parse(s);
+    return Math.floor((dayOfYear(s) - 1 + new Date(d.getFullYear(), 0, 1).getDay()) / 7) + 1;
+  }
   var WD = ['일', '월', '화', '수', '목', '금', '토'];
   var PRI_ORDER = { A: 0, B: 1, C: 2 };
   var ACTIVE = ['open', 'prog'];
@@ -54,6 +64,43 @@
     '침묵 — 남이나 자신에게 이롭지 않은 말은 하지 마라.'
   ];
 
+  /* ───────── 글꼴 (Google Fonts, 모두 무료 OFL) ─────────
+     scale: 같은 크기에서 글자가 작게 보이는 글꼴을 조금 키우는 배율 */
+  var FONT_SANS = "'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif";
+  var FONT_SERIF = "'Noto Serif KR','Noto Serif CJK KR','AppleMyungjo','Batang',serif";
+  var FONT_GROUPS = [
+    { id: 'sans', name: '고딕', desc: '깔끔하고 또렷한 글씨' },
+    { id: 'serif', name: '명조', desc: '인쇄된 플래너 같은 단정한 글씨' },
+    { id: 'hand', name: '손글씨 · 개성', desc: '직접 쓴 듯한 친근한 글씨' }
+  ];
+  var FONTS = [
+    { id: 'noto-sans', name: '노토 산스', en: 'Noto Sans KR', group: 'sans', q: null, scale: 1, note: '기본' },
+    { id: 'nanum-gothic', name: '나눔고딕', en: 'Nanum Gothic', group: 'sans', q: 'Nanum+Gothic:wght@400;700', scale: 1 },
+    { id: 'gowun-dodum', name: '고운돋움', en: 'Gowun Dodum', group: 'sans', q: 'Gowun+Dodum', scale: 1.02 },
+    { id: 'ibm-plex', name: 'IBM 플렉스 산스', en: 'IBM Plex Sans KR', group: 'sans', q: 'IBM+Plex+Sans+KR:wght@400;500;700', scale: 1.03 },
+    { id: 'noto-serif', name: '노토 세리프', en: 'Noto Serif KR', group: 'serif', q: null, scale: 1 },
+    { id: 'nanum-myeongjo', name: '나눔명조', en: 'Nanum Myeongjo', group: 'serif', q: 'Nanum+Myeongjo:wght@400;700', scale: 1 },
+    { id: 'gowun-batang', name: '고운바탕', en: 'Gowun Batang', group: 'serif', q: 'Gowun+Batang:wght@400;700', scale: 1 },
+    { id: 'nanum-pen', name: '나눔손글씨 펜', en: 'Nanum Pen Script', group: 'hand', q: 'Nanum+Pen+Script', scale: 1.35 },
+    { id: 'gaegu', name: '개구', en: 'Gaegu', group: 'hand', q: 'Gaegu:wght@400;700', scale: 1.2 },
+    { id: 'jua', name: '주아', en: 'Jua', group: 'hand', q: 'Jua', scale: 1.08 }
+  ];
+  var FONT_SAMPLE = 'A1 분기 보고서 초안 작성<br>오후 2시 고객사 미팅 · 저녁 7시 운동';
+  function fontById(id) {
+    for (var i = 0; i < FONTS.length; i++) if (FONTS[i].id === id) return FONTS[i];
+    return FONTS[0];
+  }
+  function fontStack(f) { return "'" + f.en + "'," + (f.group === 'serif' ? FONT_SERIF : FONT_SANS); }
+  var fontCssLoaded = {};
+  function loadFontCss(f) {
+    if (!f.q || fontCssLoaded[f.id]) return;
+    fontCssLoaded[f.id] = true;
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + f.q + '&display=swap';
+    document.head.appendChild(l);
+  }
+
   /* ───────── 앱 상태 ───────── */
   var S = {
     store: null, mode: null, user: null,
@@ -61,10 +108,11 @@
     view: 'day', tab: 'tasks',
     tasks: [], day: {}, dayLoaded: false,
     pending: [], profile: {},
-    range: [], rangeKey: '', monthCursor: monthKey(today()),
+    sched: {}, schedKey: '', monthCursor: monthKey(today()),
     addPri: readPref('addPri', 'A'),
+    font: 'noto-sans', fontAll: false,
     editId: null,
-    unsub: { day: null, pending: null, range: null, profile: null }
+    unsub: { day: null, pending: null, sched: null, profile: null }
   };
   var FBA = null; // { FB, app, auth, db }
 
@@ -74,6 +122,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
+    applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     bindEvents();
     buildSchedRows();
     buildMonthTabs();
@@ -202,6 +251,10 @@
     if (store.kind === 'local') setSync('local');
     S.unsub.profile = store.watchProfile(function (p) {
       S.profile = p || {};
+      if (typeof S.profile.font === 'string' &&
+          (fontById(S.profile.font).id !== S.font || !!S.profile.fontAll !== S.fontAll)) {
+        applyFont(S.profile.font, !!S.profile.fontAll);
+      }
       renderMission();
       if (S.view === 'values') fillValues();
     });
@@ -212,7 +265,7 @@
       if (S.editId) renderSheet();
     });
     subscribeDay();
-    subscribeRange(S.view === 'month' ? S.monthCursor : monthKey(S.date));
+    subscribeSched(S.view === 'month' ? S.monthCursor : monthKey(S.date));
   }
 
   function detachStore() {
@@ -220,7 +273,7 @@
     Object.keys(S.unsub).forEach(function (k) { if (S.unsub[k]) S.unsub[k](); S.unsub[k] = null; });
     if (S.store && S.store.destroy) S.store.destroy();
     S.store = null;
-    S.tasks = []; S.day = {}; S.pending = []; S.range = []; S.rangeKey = ''; S.profile = {};
+    S.tasks = []; S.day = {}; S.pending = []; S.sched = {}; S.schedKey = ''; S.profile = {};
     closeSheet(true);
   }
 
@@ -238,16 +291,21 @@
     });
   }
 
-  function subscribeRange(mk) {
+  /* 한 달 치 일정 (월간 달력·작은 달력에 표시) */
+  function subscribeSched(mk) {
     if (!S.store) return;
-    if (S.rangeKey === mk && S.unsub.range) return;
-    if (S.unsub.range) S.unsub.range();
-    S.rangeKey = mk; S.range = [];
+    if (typeof S.store.watchSchedRange !== 'function') {   // store.js가 예전 파일일 때
+      toast('월간 달력에 일정을 보이려면 store.js 파일도 새 버전으로 올려 주세요.', 'error', null, 8000);
+      return;
+    }
+    if (S.schedKey === mk && S.unsub.sched) return;
+    if (S.unsub.sched) S.unsub.sched();
+    S.schedKey = mk; S.sched = {};
     var p = mk.split('-'), y = +p[0], m = +p[1];
     var from = mk + '-01', to = mk + '-' + pad(lastDay(y, m));
-    S.unsub.range = S.store.watchRange(from, to, function (list) {
-      if (S.rangeKey !== mk) return;
-      S.range = list;
+    S.unsub.sched = S.store.watchSchedRange(from, to, function (map) {
+      if (S.schedKey !== mk) return;
+      S.sched = map || {};
       renderMiniCal();
       if (S.view === 'month') renderMonth();
     });
@@ -272,6 +330,7 @@
       : '다른 기기에서 이미 지운 항목입니다.';
     if (code === 'resource-exhausted') return 'Firebase 무료 사용 한도를 넘었습니다. 한도가 다시 채워질 때까지(Firestore는 매일) 저장이 멈출 수 있습니다.';
     if (code === 'unavailable') return '서버에 연결할 수 없습니다. 연결되면 자동으로 저장됩니다.';
+    if (code === 'old-firebase-js') return '월간 달력에 일정을 보이려면 firebase.js 파일도 새 버전으로 올려 주세요.';
     if (code === 'local-save-failed') return '이 기기에 저장하지 못했습니다. 저장 공간이나 사생활 보호 모드를 확인하십시오.';
     return '문제가 생겼습니다: ' + ((e && e.message) || code || '알 수 없는 오류');
   }
@@ -286,9 +345,12 @@
   function renderHeader() {
     var d = parse(S.date), y = d.getFullYear(), w = d.getDay();
     $('#dayNum').textContent = d.getDate();
-    $('#dayMonth').innerHTML = (d.getMonth() + 1) + '월 <span class="wd ' + (w === 0 ? 'sun' : w === 6 ? 'sat' : '') + '">' + WD[w] + '요일</span>';
+    $('#dayMonth').innerHTML = (d.getMonth() + 1) + '월 <span class="wk">' + weekOfMonth(S.date) + '주차</span> ' +
+      '<span class="wd ' + (w === 0 ? 'sun' : w === 6 ? 'sat' : '') + '">' + WD[w] + '요일</span>';
     var doy = dayOfYear(S.date);
-    $('#dayYear').textContent = y + '년 · ' + doy + '번째 날 · 올해 ' + (daysInYear(y) - doy) + '일 남음';
+    $('#dayWk').textContent = weekOfMonth(S.date) + '주차'; // 휴대폰: 큰 날짜 숫자 아래에 표시
+    $('#dayYear').innerHTML = '<span>' + y + '년 ' + weekOfYear(S.date) + '주차</span><span> · ' + doy + '일째</span>' +
+      '<span class="left"> · 올해 ' + (daysInYear(y) - doy) + '일 남음</span>';
     $('#btnToday').classList.toggle('is-today', S.date === today());
     $('#quote').innerHTML = '“' + esc(QUOTES[(doy - 1) % QUOTES.length]) + '”<cite>— 벤저민 프랭클린</cite>';
     document.title = (d.getMonth() + 1) + '월 ' + d.getDate() + '일 · 나의 플래너';
@@ -392,28 +454,28 @@
     badge.hidden = !past.length;
   }
 
-  function countsByDate(list) {
-    var c = {};
-    list.forEach(function (t) {
-      var o = c[t.date] || (c[t.date] = { open: 0, done: 0, tops: [] });
-      if (ACTIVE.indexOf(t.status) >= 0) { o.open++; o.tops.push(t); }
-      else if (t.status === 'done' || t.status === 'deleg') o.done++;
+  /* 하루 일정({ '09': '회의', ... })을 시간 순서 목록으로 */
+  function schedEntries(sched) {
+    var out = [];
+    if (!sched || typeof sched !== 'object') return out;
+    Object.keys(sched).sort().forEach(function (h) {
+      var text = String(sched[h] == null ? '' : sched[h]).trim();
+      if (/^\d{2}$/.test(h) && text) out.push({ h: +h, text: text });
     });
-    Object.keys(c).forEach(function (k) { c[k].tops = sortTasks(c[k].tops).slice(0, 3); });
-    return c;
+    return out;
   }
 
   function renderMiniCal() {
     var mk = monthKey(S.date), p = mk.split('-'), y = +p[0], m = +p[1];
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var counts = S.rangeKey === mk ? countsByDate(S.range) : {};
+    var map = S.schedKey === mk ? S.sched : {};
     var html = '<div class="mc-head"><span>' + y + '년 ' + m + '월</span><button data-go="month">월간 달력 ›</button></div>';
     html += '<table><thead><tr>' + WD.map(function (w) { return '<th>' + w + '</th>'; }).join('') + '</tr></thead><tbody><tr>';
     var cell = 0, i;
     for (i = 0; i < first; i++) { html += '<td></td>'; cell++; }
     for (var d = 1; d <= days; d++) {
       var ds = mk + '-' + pad(d), cls = [];
-      if (counts[ds] && counts[ds].open) cls.push('has');
+      if (schedEntries(map[ds]).length) cls.push('has');
       if (ds === t0) cls.push('today');
       if (ds === S.date) cls.push('sel');
       html += '<td><button data-date="' + ds + '" class="' + cls.join(' ') + '">' + d + '</button></td>';
@@ -425,27 +487,36 @@
     $('#minical').innerHTML = html;
   }
 
+  var mqWide = window.matchMedia ? window.matchMedia('(min-width:900px)') : null;
   function renderMonth() {
     var p = S.monthCursor.split('-'), y = +p[0], m = +p[1];
     $('#monthTitle').textContent = y + '년 ' + m + '월';
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var counts = S.rangeKey === S.monthCursor ? countsByDate(S.range) : {};
-    var html = WD.map(function (w, i) { return '<div class="wd ' + (i === 0 ? 'sun' : i === 6 ? 'sat' : '') + '">' + w + '</div>'; }).join('');
-    var cell = 0, i;
-    for (i = 0; i < first; i++) { html += '<div class="cell blank"></div>'; cell++; }
-    for (var d = 1; d <= days; d++) {
-      var ds = S.monthCursor + '-' + pad(d), w = (first + d - 1) % 7, c = counts[ds];
-      var cls = ['cell']; if (w === 0) cls.push('sun'); if (w === 6) cls.push('sat');
-      if (ds === t0) cls.push('today'); if (ds === S.date) cls.push('sel');
-      var inner = '<span class="dn">' + d + '</span>';
-      if (c && (c.open || c.done)) {
-        inner += '<span class="cnt-line">' + (c.open ? '<span class="c-open">● ' + c.open + '</span> ' : '') + (c.done ? '<span class="c-done">✓ ' + c.done + '</span>' : '') + '</span>';
-        c.tops.forEach(function (t) { inner += '<span class="t">' + esc(t.pri) + ' ' + esc(t.text) + '</span>'; });
+    var map = S.schedKey === S.monthCursor ? S.sched : {};
+    var wide = !!(mqWide && mqWide.matches), max = wide ? 4 : 3;   // 한 칸에 보일 일정 줄 수
+    var rows = Math.ceil((first + days) / 7);
+    var html = '<div class="wkh">주차</div>' +
+      WD.map(function (w, i) { return '<div class="wd ' + (i === 0 ? 'sun' : i === 6 ? 'sat' : '') + '">' + w + '</div>'; }).join('');
+    for (var r = 0; r < rows; r++) {
+      var cells = '', hasToday = false;
+      for (var c = 0; c < 7; c++) {
+        var d = r * 7 + c - first + 1;
+        if (d < 1 || d > days) { cells += '<div class="cell blank"></div>'; continue; }
+        var ds = S.monthCursor + '-' + pad(d), list = schedEntries(map[ds]);
+        var cls = ['cell']; if (c === 0) cls.push('sun'); if (c === 6) cls.push('sat');
+        if (ds === t0) { cls.push('today'); hasToday = true; }
+        if (ds === S.date) cls.push('sel');
+        var shown = list.length > max ? list.slice(0, max - 1) : list;
+        var inner = '<span class="dn">' + d + '</span>';
+        for (var k = 0; k < shown.length; k++) {
+          inner += '<span class="sc"><b>' + shown[k].h + '시</b>' + esc(shown[k].text) + '</span>';
+        }
+        if (list.length > shown.length) inner += '<span class="sc-more">+' + (list.length - shown.length) + (wide ? '개 더' : '') + '</span>';
+        cells += '<button class="' + cls.join(' ') + '" data-date="' + ds + '" aria-label="' + m + '월 ' + d + '일' +
+          (list.length ? ', 일정 ' + list.length + '개' : '') + '">' + inner + '</button>';
       }
-      html += '<button class="' + cls.join(' ') + '" data-date="' + ds + '" aria-label="' + m + '월 ' + d + '일">' + inner + '</button>';
-      cell++;
+      html += '<div class="wkc' + (hasToday ? ' cur' : '') + '">' + (r + 1) + '<small>주</small></div>' + cells;
     }
-    while (cell % 7 !== 0) { html += '<div class="cell blank"></div>'; cell++; }
     $('#mgrid').innerHTML = html;
   }
 
@@ -464,7 +535,7 @@
         html += '<div class="pend-group"><h3>' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + WD[d.getDay()] + ')</h3>';
       }
       html += '<div class="pend-item pri-' + esc(t.pri) + '" data-id="' + esc(t.id) + '"><span class="pri">' + esc(t.pri) + '</span>' +
-        '<span>' + esc(t.text) + (t.status === 'prog' ? ' <small style="color:var(--gold)">● 진행 중</small>' : '') + '</span>' +
+        '<span class="ptxt">' + esc(t.text) + (t.status === 'prog' ? ' <small style="color:var(--gold)">● 진행 중</small>' : '') + '</span>' +
         '<span class="acts"><button class="btn small primary" data-pact="today">→ 오늘로</button><button class="btn small" data-pact="done">✓</button><button class="btn small" data-pact="del">✕</button></span></div>';
     });
     html += '</div>';
@@ -477,16 +548,66 @@
     $('#monthTabs').innerHTML = html;
   }
 
+  /* ───────── 글꼴 바꾸기 ───────── */
+  function applyFont(id, all) {
+    var f = fontById(id), st = fontStack(f), root = document.documentElement.style;
+    loadFontCss(f);
+    root.setProperty('--content', st);
+    root.setProperty('--fs', String(f.scale));
+    root.setProperty('--fsu', all ? String(f.scale) : '1');
+    if (all) { root.setProperty('--sans', st); root.setProperty('--serif', st); }
+    else { root.removeProperty('--sans'); root.removeProperty('--serif'); }
+    S.font = f.id; S.fontAll = !!all;
+    writePref('font', f.id); writePref('fontAll', all ? '1' : '0');
+    if (S.view === 'font') markFontCards();
+  }
+
+  function chooseFont(id, all) {
+    applyFont(id, all);
+    if (S.store) S.store.setProfile({ font: S.font, fontAll: S.fontAll });
+  }
+
+  function renderFontView() {
+    FONTS.forEach(loadFontCss); // 미리보기를 위해 10종을 모두 불러옴
+    $('#fontDesc').textContent = S.mode === 'firebase'
+      ? '할 일·일정·메모처럼 직접 적는 글씨의 모양을 고릅니다. 고른 글꼴은 PC와 휴대폰에 함께 적용됩니다.'
+      : '할 일·일정·메모처럼 직접 적는 글씨의 모양을 고릅니다. (미리보기 모드에서는 이 기기에만 적용됩니다)';
+    var html = '';
+    FONT_GROUPS.forEach(function (g) {
+      html += '<h3 class="font-group">' + g.name + '<span>' + g.desc + '</span></h3><div class="font-grid">';
+      FONTS.filter(function (f) { return f.group === g.id; }).forEach(function (f) {
+        html += '<button class="font-card" data-font="' + f.id + '" aria-pressed="false">' +
+          '<span class="fc-head"><b>' + esc(f.name) + '</b><small>' + esc(f.en) + (f.note ? ' · ' + f.note : '') + '</small></span>' +
+          '<span class="fc-check">✓ 사용 중</span>' +
+          '<span class="fc-sample" style="font-family:' + esc(fontStack(f)) + ';font-size:' + (17 * f.scale).toFixed(1) + 'px">' + FONT_SAMPLE + '</span>' +
+          '</button>';
+      });
+      html += '</div>';
+    });
+    $('#fontList').innerHTML = html;
+    markFontCards();
+  }
+
+  function markFontCards() {
+    $('#fontAll').checked = S.fontAll;
+    $$('#fontList .font-card').forEach(function (b) {
+      var on = b.dataset.font === S.font;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
   /* ───────── 화면 전환 ───────── */
-  var VIEWS = { day: '#dayView', month: '#monthView', pending: '#pendingView', values: '#valuesView', help: '#helpView' };
+  var VIEWS = { day: '#dayView', month: '#monthView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
   function showView(v) {
     if (v !== 'values') flushValues();
     S.view = v;
     Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== v; });
-    if (v === 'month') { subscribeRange(S.monthCursor); renderMonth(); }
-    else if (S.store) subscribeRange(monthKey(S.date));
+    if (v === 'month') { subscribeSched(S.monthCursor); renderMonth(); }
+    else if (S.store) subscribeSched(monthKey(S.date));
     if (v === 'pending') renderPendingView();
     if (v === 'values') fillValues();
+    if (v === 'font') renderFontView();
     if (v === 'day') { renderHeader(); renderMiniCal(); }
     window.scrollTo(0, 0);
   }
@@ -504,7 +625,7 @@
     S.date = d; S.followToday = d === today();
     if (S.view !== 'day') showView('day');
     subscribeDay();
-    subscribeRange(monthKey(d));
+    subscribeSched(monthKey(d));
     renderHeader(); renderMiniCal(); renderPendingBanner();
   }
 
@@ -871,14 +992,28 @@
     $('#notes').addEventListener('input', onNotesInput);
     $('#notes').addEventListener('blur', flushNotes);
     $('#valuesView').addEventListener('input', onValuesInput);
+    $('#fontList').addEventListener('click', function (e) {
+      var b = e.target.closest('.font-card'); if (!b) return;
+      if (b.dataset.font === S.font) return;
+      chooseFont(b.dataset.font, S.fontAll);
+      toast(fontById(b.dataset.font).name + ' 글꼴로 바꿨습니다.');
+    });
+    $('#fontAll').addEventListener('change', function (e) { chooseFont(S.font, e.target.checked); });
     $('#valuesView').addEventListener('focusout', flushValues);
 
     $('#minical').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-date]'); if (b) setDate(b.dataset.date);
     });
     $('#mgrid').addEventListener('click', function (e) {
-      var b = e.target.closest('button[data-date]'); if (b) setDate(b.dataset.date);
+      var b = e.target.closest('button[data-date]'); if (!b) return;
+      setDate(b.dataset.date);
+      setTab('sched'); // 월간 달력은 일정을 보여 주므로, 휴대폰에서는 그날의 일정 화면을 엽니다
     });
+    // PC 크기 ↔ 휴대폰 크기가 바뀌면 월간 달력 칸에 보일 줄 수를 다시 계산
+    if (mqWide) {
+      var onWide = function () { if (S.view === 'month') renderMonth(); };
+      if (mqWide.addEventListener) mqWide.addEventListener('change', onWide); else if (mqWide.addListener) mqWide.addListener(onWide);
+    }
     $('#monthTabs').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-m]'); if (!b) return;
       S.monthCursor = S.date.slice(0, 4) + '-' + pad(+b.dataset.m);
@@ -886,7 +1021,7 @@
     });
     $('#mPrev').addEventListener('click', function () { shiftMonth(-1); });
     $('#mNext').addEventListener('click', function () { shiftMonth(1); });
-    $('#mToday').addEventListener('click', function () { S.monthCursor = monthKey(today()); subscribeRange(S.monthCursor); renderMonth(); });
+    $('#mToday').addEventListener('click', function () { S.monthCursor = monthKey(today()); subscribeSched(S.monthCursor); renderMonth(); });
 
     $('#btnPullAll').addEventListener('click', pullAllToToday);
     $('#btnPullAll2').addEventListener('click', pullAllToToday);
@@ -1024,7 +1159,7 @@
   function shiftMonth(n) {
     var p = S.monthCursor.split('-'), d = new Date(+p[0], +p[1] - 1 + n, 1);
     S.monthCursor = d.getFullYear() + '-' + pad(d.getMonth() + 1);
-    subscribeRange(S.monthCursor);
+    subscribeSched(S.monthCursor);
     renderMonth();
   }
 

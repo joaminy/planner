@@ -2,7 +2,7 @@
    앱 파일을 휴대폰·PC에 보관해 두었다가 인터넷이 없을 때 꺼내 씁니다.
    인터넷이 되면 항상 최신 파일을 먼저 받으므로, GitHub에서 고친 내용이 바로 반영됩니다.
    이 파일은 수정하지 않아도 됩니다. */
-var CACHE = 'my-planner-v1';
+var CACHE = 'my-planner-v2';
 var SHELL = ['./', './index.html', './app.js', './store.js', './config.js', './firebase.js',
   './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
@@ -18,8 +18,8 @@ self.addEventListener('activate', function (e) {
   }).then(function () { return self.clients.claim(); }));
 });
 
-function putCache(req, res) {
-  if (res && res.ok && (res.type === 'basic' || res.type === 'cors')) {
+function putCache(req, res, allowOpaque) {
+  if (res && ((res.ok && (res.type === 'basic' || res.type === 'cors')) || (allowOpaque && res.type === 'opaque'))) {
     var copy = res.clone();
     caches.open(CACHE).then(function (c) { c.put(req, copy); });
   }
@@ -47,10 +47,19 @@ function networkFirst(req, isNav) {
   });
 }
 
-/* 보관본 먼저 (글꼴) */
+/* 보관본 먼저 (글꼴 파일 — 바뀌지 않음) */
 function cacheFirst(req) {
   return caches.match(req).then(function (r) {
-    return r || fetch(req).then(function (res) { return putCache(req, res); });
+    return r || fetch(req).then(function (res) { return putCache(req, res, true); });
+  });
+}
+
+/* 보관본을 바로 쓰고, 뒤에서 새 버전으로 갱신 (글꼴 목록 CSS) */
+function staleWhileRevalidate(req) {
+  return caches.match(req).then(function (r) {
+    var net = fetch(req).then(function (res) { return putCache(req, res, true); });
+    if (r) { net.catch(function () { /* 오프라인 */ }); return r; }
+    return net;
   });
 }
 
@@ -60,7 +69,9 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin === self.location.origin) {
     e.respondWith(networkFirst(req, req.mode === 'navigate'));
-  } else if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+  } else if (url.hostname === 'fonts.googleapis.com') {
+    e.respondWith(staleWhileRevalidate(req));
+  } else if (url.hostname === 'fonts.gstatic.com') {
     e.respondWith(cacheFirst(req));
   }
   /* 그 밖의 요청(Firebase 서버 등)은 그대로 통과 */
