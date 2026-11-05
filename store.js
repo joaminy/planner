@@ -56,6 +56,8 @@
     });
     if (typeof p.font === 'string') out.font = p.font.slice(0, 40);
     if (typeof p.fontAll === 'boolean') out.fontAll = p.fontAll;
+    if (typeof p.theme === 'string') out.theme = p.theme.slice(0, 20);
+    if (typeof p.themeColor === 'string' && /^(#[0-9A-Fa-f]{6})?$/.test(p.themeColor)) out.themeColor = p.themeColor;
     return out;
   }
 

@@ -26,17 +26,26 @@
   }
   function daysInYear(y) { return ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365; }
   function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
-  /* 주차: 달력 한 줄(일요일~토요일)이 한 주입니다.
-     그 달 1일이 들어 있는 줄이 '1주차', 1월 1일이 들어 있는 주가 '올해 1주차'입니다. */
-  function weekOfMonth(s) {
-    var d = parse(s);
-    return Math.floor((d.getDate() - 1 + new Date(d.getFullYear(), d.getMonth(), 1).getDay()) / 7) + 1;
-  }
+  /* 주차: 1월 1일이 들어 있는 주가 1주차, 일요일~토요일(달력 한 줄)이 한 주입니다.
+     (엑셀 WEEKNUM 함수의 기본 방식과 같음) */
   function weekOfYear(s) {
     var d = parse(s);
     return Math.floor((dayOfYear(s) - 1 + new Date(d.getFullYear(), 0, 1).getDay()) / 7) + 1;
   }
   var WD = ['일', '월', '화', '수', '목', '금', '토'];
+
+  /* 음력 (한국천문연구원 기준, lunar.js) — 범위 밖이거나 파일이 없으면 null */
+  var lunarCal = null;
+  function lunarOf(s) {
+    try {
+      if (!window.KoreanLunarCalendar) return null;
+      if (!lunarCal) lunarCal = new window.KoreanLunarCalendar();
+      var p = s.split('-');
+      if (!lunarCal.setSolarDate(+p[0], +p[1], +p[2])) return null;
+      var l = lunarCal.getLunarCalendar();
+      return { m: l.month, d: l.day, leap: !!l.intercalation };
+    } catch (e) { return null; }
+  }
   var PRI_ORDER = { A: 0, B: 1, C: 2 };
   var ACTIVE = ['open', 'prog'];
   var HOURS = []; for (var hh = 6; hh <= 22; hh++) HOURS.push(pad(hh));
@@ -101,6 +110,48 @@
     document.head.appendChild(l);
   }
 
+  /* ───────── 플래너 색깔 ─────────
+     accent: 제목·버튼·강조 색, cover: PC 화면 바탕(플래너 표지) 색 */
+  var THEMES = [
+    { id: 'green', name: '숲 초록', accent: '#1F4D3C', cover: '#3A2D24', note: '기본' },
+    { id: 'navy', name: '네이비', accent: '#1F3A5F', cover: '#1C2636' },
+    { id: 'burgundy', name: '버건디', accent: '#7A2333', cover: '#3A1820' },
+    { id: 'brown', name: '브라운', accent: '#6B4226', cover: '#3B2A1E' },
+    { id: 'charcoal', name: '차콜', accent: '#33383D', cover: '#1E2124' },
+    { id: 'plum', name: '플럼', accent: '#55306A', cover: '#2B1C35' },
+    { id: 'teal', name: '청록', accent: '#155E63', cover: '#123437' },
+    { id: 'rose', name: '로즈', accent: '#9C3D5D', cover: '#4A2232' }
+  ];
+  var THEME_KEYS = ['--green', '--green-2', '--green-tint', '--green-line', '--leather', '--leather-hi', '--leather-lo'];
+  function themeById(id) {
+    for (var i = 0; i < THEMES.length; i++) if (THEMES[i].id === id) return THEMES[i];
+    return null;
+  }
+  function isHex(h) { return /^#[0-9A-Fa-f]{6}$/.test(h || ''); }
+  function rgbOf(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function hexOf(c) {
+    return '#' + c.map(function (v) { return ('0' + Math.round(Math.max(0, Math.min(255, v))).toString(16)).slice(-2); }).join('').toUpperCase();
+  }
+  function mixHex(a, b, t) { var A = rgbOf(a), B = rgbOf(b); return hexOf([0, 1, 2].map(function (i) { return A[i] + (B[i] - A[i]) * t; })); }
+  function lumOf(h) {
+    var w = [0.2126, 0.7152, 0.0722];
+    return rgbOf(h).reduce(function (sum, v, i) { v /= 255; return sum + w[i] * (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); }, 0);
+  }
+  function contrastOf(a, b) { var x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  /* 직접 고른 색이 너무 밝으면 글씨가 안 보이므로, 종이색과 대비 4.5:1 이상이 될 때까지 조금씩 어둡게 */
+  function readableAccent(h) {
+    var c = h.toUpperCase(), i = 0;
+    while (contrastOf(c, '#FCFAF4') < 4.5 && i++ < 60) c = mixHex(c, '#000000', 0.05);
+    return c;
+  }
+  function themeVars(accent, cover) {
+    return {
+      '--green': accent, '--green-2': mixHex(accent, '#FFFFFF', 0.14), '--green-tint': mixHex(accent, '#FFFFFF', 0.88),
+      '--green-line': mixHex(accent, '#FFFFFF', 0.72), '--leather': cover,
+      '--leather-hi': mixHex(cover, '#FFFFFF', 0.12), '--leather-lo': mixHex(cover, '#000000', 0.28)
+    };
+  }
+
   /* ───────── 앱 상태 ───────── */
   var S = {
     store: null, mode: null, user: null,
@@ -111,6 +162,7 @@
     sched: {}, schedKey: '', monthCursor: monthKey(today()),
     addPri: readPref('addPri', 'A'),
     font: 'noto-sans', fontAll: false,
+    theme: 'green', themeColor: '',
     editId: null,
     unsub: { day: null, pending: null, sched: null, profile: null }
   };
@@ -123,6 +175,7 @@
   function boot() {
     window.__plannerBooted = true;
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
+    applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
     bindEvents();
     buildSchedRows();
     buildMonthTabs();
@@ -255,6 +308,8 @@
           (fontById(S.profile.font).id !== S.font || !!S.profile.fontAll !== S.fontAll)) {
         applyFont(S.profile.font, !!S.profile.fontAll);
       }
+      var pt = S.profile.theme, pc = String(S.profile.themeColor || '').toUpperCase();
+      if (typeof pt === 'string' && (pt !== S.theme || (pt === 'custom' && pc !== S.themeColor))) applyTheme(pt, pc);
       renderMission();
       if (S.view === 'values') fillValues();
     });
@@ -345,11 +400,15 @@
   function renderHeader() {
     var d = parse(S.date), y = d.getFullYear(), w = d.getDay();
     $('#dayNum').textContent = d.getDate();
-    $('#dayMonth').innerHTML = (d.getMonth() + 1) + '월 <span class="wk">' + weekOfMonth(S.date) + '주차</span> ' +
+    var wy = weekOfYear(S.date);
+    $('#dayMonth').innerHTML = (d.getMonth() + 1) + '월 <span class="wk">' + wy + '주차</span> ' +
       '<span class="wd ' + (w === 0 ? 'sun' : w === 6 ? 'sat' : '') + '">' + WD[w] + '요일</span>';
-    var doy = dayOfYear(S.date);
-    $('#dayWk').textContent = weekOfMonth(S.date) + '주차'; // 휴대폰: 큰 날짜 숫자 아래에 표시
-    $('#dayYear').innerHTML = '<span>' + y + '년 ' + weekOfYear(S.date) + '주차</span><span> · ' + doy + '일째</span>' +
+    $('#dayWk').textContent = wy + '주차'; // 휴대폰: 큰 날짜 숫자 아래에 표시
+    var doy = dayOfYear(S.date), lu = w === 0 ? lunarOf(S.date) : null;   // 음력은 일요일에만
+    var yl = $('#dayYear');
+    yl.classList.toggle('has-lunar', !!lu);
+    yl.innerHTML = '<span>' + y + '년</span><span class="doy"> · ' + doy + '일째</span>' +
+      (lu ? '<span class="lunar"> · 음력 ' + (lu.leap ? '윤' : '') + lu.m + '월 ' + lu.d + '일</span>' : '') +
       '<span class="left"> · 올해 ' + (daysInYear(y) - doy) + '일 남음</span>';
     $('#btnToday').classList.toggle('is-today', S.date === today());
     $('#quote').innerHTML = '“' + esc(QUOTES[(doy - 1) % QUOTES.length]) + '”<cite>— 벤저민 프랭클린</cite>';
@@ -507,7 +566,9 @@
         if (ds === t0) { cls.push('today'); hasToday = true; }
         if (ds === S.date) cls.push('sel');
         var shown = list.length > max ? list.slice(0, max - 1) : list;
-        var inner = '<span class="dn">' + d + '</span>';
+        var lu = c === 0 ? lunarOf(ds) : null;   // 일요일 칸에는 음력
+        var inner = '<span class="top"><span class="dn">' + d + '</span>' +
+          (lu ? '<span class="lunar">음 ' + (lu.leap ? '윤' : '') + lu.m + '.' + lu.d + '</span>' : '') + '</span>';
         for (var k = 0; k < shown.length; k++) {
           inner += '<span class="sc"><b>' + shown[k].h + '시</b>' + esc(shown[k].text) + '</span>';
         }
@@ -515,7 +576,8 @@
         cells += '<button class="' + cls.join(' ') + '" data-date="' + ds + '" aria-label="' + m + '월 ' + d + '일' +
           (list.length ? ', 일정 ' + list.length + '개' : '') + '">' + inner + '</button>';
       }
-      html += '<div class="wkc' + (hasToday ? ' cur' : '') + '">' + (r + 1) + '<small>주</small></div>' + cells;
+      var wn = weekOfYear(S.monthCursor + '-' + pad(Math.max(1, r * 7 - first + 1)));   // 그 줄의 올해 주차
+      html += '<div class="wkc' + (hasToday ? ' cur' : '') + '">' + wn + '<small>주</small></div>' + cells;
     }
     $('#mgrid').innerHTML = html;
   }
@@ -567,11 +629,65 @@
     if (S.store) S.store.setProfile({ font: S.font, fontAll: S.fontAll });
   }
 
+  function applyTheme(id, color) {
+    var t = themeById(id), vars = null, root = document.documentElement.style;
+    if (id === 'custom' && isHex(color)) {
+      var acc = readableAccent(color);
+      vars = themeVars(acc, mixHex(acc, '#000000', 0.55));
+      S.theme = 'custom'; S.themeColor = color.toUpperCase();
+    } else {
+      if (!t) t = THEMES[0];
+      if (t.id !== 'green') vars = themeVars(t.accent, t.cover); // 기본(숲 초록)은 원래 디자인 그대로
+      S.theme = t.id;
+    }
+    THEME_KEYS.forEach(function (k) { if (vars) root.setProperty(k, vars[k]); else root.removeProperty(k); });
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', vars ? vars['--green'] : '#1F4D3C');
+    writePref('theme', S.theme);
+    if (S.theme === 'custom') writePref('themeColor', S.themeColor);
+    try {
+      if (vars) localStorage.setItem('my-planner:themeVars', JSON.stringify(vars));
+      else localStorage.removeItem('my-planner:themeVars');
+    } catch (e) { /* 저장 못 해도 지금 화면에는 적용됨 */ }
+    if (S.view === 'font') markThemeCards();
+  }
+
+  function chooseTheme(id, color) {
+    applyTheme(id, color);
+    if (S.store) S.store.setProfile({ theme: S.theme, themeColor: S.theme === 'custom' ? S.themeColor : '' });
+  }
+
+  function renderThemeList() {
+    var cc = S.themeColor || '#3A6EA5';
+    var html = THEMES.map(function (t) {
+      return '<button class="theme-card" data-theme="' + t.id + '" aria-pressed="false">' +
+        '<span class="tc-swatch" style="background:' + t.cover + '"><i style="background:' + t.accent + '"></i></span>' +
+        '<span class="tc-name">' + esc(t.name) + (t.note ? '<small>' + t.note + '</small>' : '') + '</span><span class="tc-on">✓</span></button>';
+    }).join('');
+    html += '<label class="theme-card custom" data-theme="custom">' +
+      '<span class="tc-swatch rainbow"><i id="customDot" style="background:' + cc + '"></i></span>' +
+      '<span class="tc-name">직접 고르기<small>원하는 색 지정</small></span><span class="tc-on">✓</span>' +
+      '<input type="color" id="themeColor" value="' + cc.toLowerCase() + '" aria-label="플래너 색 직접 고르기"></label>';
+    $('#themeList').innerHTML = html;
+    markThemeCards();
+  }
+
+  function markThemeCards() {
+    $$('#themeList .theme-card').forEach(function (b) {
+      var on = b.dataset.theme === S.theme;
+      b.classList.toggle('on', on);
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var dot = $('#customDot');
+    if (dot && S.themeColor) dot.style.background = readableAccent(S.themeColor);
+  }
+
   function renderFontView() {
     FONTS.forEach(loadFontCss); // 미리보기를 위해 10종을 모두 불러옴
+    renderThemeList();
     $('#fontDesc').textContent = S.mode === 'firebase'
-      ? '할 일·일정·메모처럼 직접 적는 글씨의 모양을 고릅니다. 고른 글꼴은 PC와 휴대폰에 함께 적용됩니다.'
-      : '할 일·일정·메모처럼 직접 적는 글씨의 모양을 고릅니다. (미리보기 모드에서는 이 기기에만 적용됩니다)';
+      ? '플래너 색깔과 글꼴을 고릅니다. 고른 설정은 PC와 휴대폰에 함께 적용됩니다.'
+      : '플래너 색깔과 글꼴을 고릅니다. (미리보기 모드에서는 이 기기에만 적용됩니다)';
     var html = '';
     FONT_GROUPS.forEach(function (g) {
       html += '<h3 class="font-group">' + g.name + '<span>' + g.desc + '</span></h3><div class="font-grid">';
@@ -999,6 +1115,19 @@
       toast(fontById(b.dataset.font).name + ' 글꼴로 바꿨습니다.');
     });
     $('#fontAll').addEventListener('change', function (e) { chooseFont(S.font, e.target.checked); });
+    $('#themeList').addEventListener('click', function (e) {
+      var b = e.target.closest('button.theme-card'); if (!b) return;
+      if (b.dataset.theme === S.theme) return;
+      chooseTheme(b.dataset.theme);
+      toast(themeById(b.dataset.theme).name + ' 색으로 바꿨습니다.');
+    });
+    // 직접 고르기: 고르는 동안은 화면에만 미리 보여 주고, 다 고르면 저장
+    $('#themeList').addEventListener('input', function (e) { if (e.target.id === 'themeColor') applyTheme('custom', e.target.value); });
+    $('#themeList').addEventListener('change', function (e) {
+      if (e.target.id !== 'themeColor') return;
+      chooseTheme('custom', e.target.value);
+      toast(readableAccent(e.target.value) === e.target.value.toUpperCase() ? '고른 색으로 바꿨습니다.' : '글씨가 잘 보이도록 조금 어둡게 바꿔 적용했습니다.');
+    });
     $('#valuesView').addEventListener('focusout', flushValues);
 
     $('#minical').addEventListener('click', function (e) {
@@ -1163,5 +1292,17 @@
     renderMonth();
   }
 
-  boot();
+  try {
+    boot();
+  } catch (e) {
+    // 시작하다 멈추면(예: 새 app.js와 예전 index.html이 섞였을 때) 안내를 보여 줌
+    var sp = document.getElementById('splash');
+    if (sp) {
+      sp.hidden = false;
+      sp.style.padding = '24px'; sp.style.textAlign = 'center'; sp.style.lineHeight = '1.7';
+      sp.innerHTML = '앱을 시작하지 못했습니다.<br>업데이트할 때 받은 파일이 <b>모두</b> GitHub 저장소에 올라갔는지 확인한 뒤<br>앱을 닫았다가 다시 열어 주십시오.' +
+        '<br><small style="opacity:.75">(' + esc(String((e && e.message) || e)) + ')</small>';
+    }
+    if (window.console) console.error(e);
+  }
 })();

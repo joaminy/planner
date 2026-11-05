@@ -6,6 +6,18 @@
 <title>나의 플래너</title>
 <meta name="description" content="프랭클린 플래너 방식의 할 일·일정 관리 앱 (PC·휴대폰 동기화)">
 <meta name="theme-color" content="#1F4D3C">
+<script>
+/* 고른 플래너 색깔을 화면이 그려지기 전에 먼저 적용합니다 (깜빡임 방지). 수정하지 않아도 됩니다. */
+(function () {
+  try {
+    var v = JSON.parse(localStorage.getItem('my-planner:themeVars') || 'null'), r = document.documentElement.style;
+    if (v && typeof v === 'object') {
+      for (var k in v) if (/^--[a-z0-9-]+$/.test(k) && /^#[0-9A-Fa-f]{6}$/.test(v[k])) r.setProperty(k, v[k]);
+      if (/^#[0-9A-Fa-f]{6}$/.test(v['--green'] || '')) document.querySelector('meta[name="theme-color"]').setAttribute('content', v['--green']);
+    }
+  } catch (e) { /* 저장된 색이 없으면 기본 색 */ }
+})();
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -26,7 +38,8 @@
   --wine:#8A2B2B; --wine-tint:#F6E7E4;
   --gold:#A47B33; --gold-tint:#F7EEDA;
   --slate:#4A5E70; --slate-tint:#E7EDF2;
-  --leather:#3A2D24;
+  --leather:#3A2D24; --leather-hi:#55443A; --leather-lo:#2A2019;  /* PC 바탕(플래너 표지) */
+  --green-line:#C7D9CC;  /* 강조색의 연한 테두리 */
   --A:var(--wine); --B:var(--green); --C:var(--slate);
   --serif:"Noto Serif KR","Noto Serif CJK KR","Nanum Myeongjo","AppleMyungjo","Batang",serif;
   --sans:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -71,15 +84,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .wd.sun{color:var(--wine)} .wd.sat{color:var(--slate)}
 .day-year{font-size:calc(12.5px * var(--fsu));color:var(--ink-3);letter-spacing:.01em}
 .day-year span{white-space:nowrap}
-.wk{display:inline-block;font-family:var(--sans);font-size:calc(12.5px * var(--fsu));font-weight:700;line-height:1.55;color:var(--green);background:var(--green-tint);border:1px solid #C7D9CC;border-radius:999px;padding:0 7px;margin:0 1px;vertical-align:2px;white-space:nowrap}
+.wk{display:inline-block;font-family:var(--sans);font-size:calc(12.5px * var(--fsu));font-weight:700;line-height:1.55;color:var(--green);background:var(--green-tint);border:1px solid var(--green-line);border-radius:999px;padding:0 7px;margin:0 1px;vertical-align:2px;white-space:nowrap}
 .num-col{display:flex;flex-direction:column;align-items:center;flex:none}
 .wk-under{display:none}
-@media (max-width:599px){.day-year .left{display:none}.day-month .wk{display:none}.wk-under{display:inline-block;margin-top:4px;font-size:calc(11px * var(--fsu));padding:0 6px;vertical-align:0}.nav-group{gap:4px}.date-head{gap:10px}}
+@media (max-width:599px){.day-year .left{display:none}#dayYear.has-lunar .doy{display:none}.day-month .wk{display:none}.wk-under{display:inline-block;margin-top:4px;font-size:calc(11px * var(--fsu));padding:0 6px;vertical-align:0}.nav-group{gap:4px}.date-head{gap:10px}}
 .nav-group{display:flex;gap:6px;flex:none}
 .nav-btn{height:40px;min-width:40px;padding:0 10px;border:1px solid var(--line-2);background:#fff;border-radius:9px;font-size:calc(15px * var(--fsu));display:grid;place-items:center}
 .nav-btn svg{width:18px;height:18px}
 .nav-btn.today{font-weight:700;color:var(--green)}
-.nav-btn.today.is-today{background:var(--green-tint);border-color:#C7D9CC}
+.nav-btn.today.is-today{background:var(--green-tint);border-color:var(--green-line)}
 
 .quote{margin:10px 16px 0;padding:4px 0 4px 12px;border-left:3px solid var(--gold);font-family:var(--serif);color:var(--ink-2);font-size:calc(14px * var(--fsu));line-height:1.55}
 .quote cite{font-style:normal;color:var(--ink-3);font-size:calc(12px * var(--fsu));margin-left:4px;white-space:nowrap}
@@ -205,11 +218,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .mgrid .wd.sun{color:var(--wine)} .mgrid .wd.sat{color:var(--slate)}
 .mgrid .cell{min-height:78px;border:0;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:4px 4px 5px;text-align:left;background:#fff;display:flex;flex-direction:column;gap:2px;font-size:calc(12px * var(--fsu));min-width:0}
 .mgrid .cell:hover{background:var(--paper)}
+.cell .top{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0}
+.cell .lunar{font-size:calc(9.5px * var(--fsu));color:var(--ink-3);white-space:nowrap;letter-spacing:-.02em;line-height:1.3}
+#dayYear .lunar{color:var(--wine)}
 .cell .dn{font-family:var(--serif);font-weight:600;font-size:calc(13px * var(--fsu));width:22px;height:22px;display:grid;place-items:center}
 .cell.sun .dn{color:var(--wine)} .cell.sat .dn{color:var(--slate)}
 .cell.today .dn{color:#fff;background:var(--wine);border-radius:50%}
 .cell.sel{box-shadow:inset 0 0 0 2px var(--green)}
-.cell .sc{display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;font-family:var(--content);font-size:calc(10.5px * var(--fs));line-height:1.5;color:#1B4535;background:var(--green-tint);border-radius:3px;padding:0 3px}
+.cell .sc{display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;font-family:var(--content);font-size:calc(10.5px * var(--fs));line-height:1.5;color:var(--ink-2);padding:0 1px}
 .cell .sc b{display:none;font-family:var(--sans);font-weight:700;color:var(--green);margin-right:4px}
 .cell .sc-more{font-size:calc(10.5px * var(--fsu));font-weight:700;color:var(--ink-3);padding:0 3px;line-height:1.4}
 .cell.blank{background:var(--paper-2);cursor:default}
@@ -302,6 +318,21 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .toast button{border:0;background:transparent;color:#F2C14E;font-weight:700;padding:0;flex:none}
 
 /* ───────── PC 화면 (넓은 화면): 펼친 플래너 ───────── */
+/* ───────── 색깔 · 글꼴 바꾸기 ───────── */
+.deco-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-family:var(--serif);font-size:calc(19px * var(--fsu));color:var(--green);margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid var(--green)}
+.deco-h small{font-family:var(--sans);font-size:calc(12.5px * var(--fsu));color:var(--ink-3);font-weight:400}
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0 4px}
+.theme-card{position:relative;display:flex;align-items:center;gap:10px;min-height:58px;padding:8px 10px;border:1.5px solid var(--line-2);border-radius:12px;background:#fff;text-align:left;cursor:pointer}
+.theme-card:hover{border-color:var(--ink-4)}
+.theme-card.on{border-color:var(--green);box-shadow:0 0 0 2px var(--green-tint)}
+.tc-swatch{position:relative;width:34px;height:40px;border-radius:5px 8px 8px 5px;flex:none;box-shadow:inset -3px 0 0 rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.25)}
+.tc-swatch i{position:absolute;right:5px;top:6px;bottom:6px;width:7px;border-radius:2px}
+.tc-swatch.rainbow{background:conic-gradient(from 0deg,#C0392B,#D68910,#B7950B,#1E8449,#1F618D,#6C3483,#C0392B)}
+.tc-name{display:flex;flex-direction:column;font-size:calc(14.5px * var(--fsu));font-weight:500;line-height:1.3}
+.tc-name small{font-size:calc(11.5px * var(--fsu));color:var(--ink-3);font-weight:400}
+.theme-card .tc-on{position:absolute;top:6px;right:8px;font-size:calc(12px * var(--fsu));font-weight:700;color:var(--green);display:none}
+.theme-card.on .tc-on{display:block}
+.theme-card input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 /* ───────── 글꼴 바꾸기 ───────── */
 .font-all{display:flex;gap:10px;align-items:flex-start;margin:6px 0 4px;padding:12px 14px;border:1px solid var(--line-2);border-radius:10px;background:#fff;font-size:calc(15px * var(--fsu));cursor:pointer}
 .font-all input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--green);flex:none}
@@ -320,7 +351,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .fc-sample{display:block;margin-top:8px;color:var(--ink);line-height:1.45;word-break:keep-all}
 @media (min-width:900px){
   :root{--row:41px}
-  body{background-color:var(--leather);background-image:radial-gradient(ellipse at 50% 0%,#55443A 0%,#3A2D24 55%,#2A2019 100%);background-attachment:fixed}
+  body{background-color:var(--leather);background-image:radial-gradient(ellipse at 50% 0%,var(--leather-hi) 0%,var(--leather) 55%,var(--leather-lo) 100%);background-attachment:fixed}
   .topbar{position:static;background:transparent;max-width:1280px;margin:0 auto;padding:12px 22px 4px;height:auto}
   .binder{max-width:1280px;margin:4px auto 36px;border-radius:14px;box-shadow:0 2px 0 #E2D8C2,0 4px 0 #D3C6A8,0 6px 0 #C7B892,0 24px 60px rgba(0,0,0,.5)}
   .tabs{display:none}
@@ -342,9 +373,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   .mgrid .wkc{padding-top:12px;font-size:calc(16px * var(--fsu))}
   .mgrid .wkc small{font-size:calc(11px * var(--fsu))}
   .mgrid .cell{min-height:118px;padding:6px;gap:3px}
-  .cell .sc{font-size:calc(12px * var(--fs));text-overflow:ellipsis;padding:1px 6px}
+  .cell .sc{font-size:calc(12px * var(--fs));text-overflow:ellipsis;padding:1px 2px}
   .cell .sc b{display:inline}
-  .cell .sc-more{font-size:calc(12px * var(--fsu));padding:0 6px}
+  .cell .sc-more{font-size:calc(12px * var(--fsu));padding:0 2px}
+  .cell .lunar{font-size:calc(11.5px * var(--fsu))}
   .month-legend{margin:0 24px 26px}
   .page-wrap{padding:6px 28px 36px}
   .font-grid{grid-template-columns:1fr 1fr}
@@ -463,7 +495,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       </div>
     </div>
     <div id="mgrid" class="mgrid"></div>
-    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 왼쪽 숫자는 그달의 주차입니다.</p>
+    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 왼쪽 숫자는 올해의 주차, 일요일 칸의 ‘음’은 음력 날짜입니다.</p>
   </section>
 
   <!-- ===== 미처리 할 일 ===== -->
@@ -490,7 +522,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   <!-- ===== 글꼴 바꾸기 ===== -->
   <section id="fontView" class="view" hidden>
     <div class="page-wrap">
-      <div class="page-title"><h2>글꼴 바꾸기</h2><p id="fontDesc">할 일·일정·메모처럼 직접 적는 글씨의 모양을 고릅니다.</p></div>
+      <div class="page-title"><h2>색깔 · 글꼴 바꾸기</h2><p id="fontDesc">플래너 색깔과 글꼴을 고릅니다.</p></div>
+      <h3 class="deco-h">플래너 색깔<small>표지·제목·버튼에 쓰이는 색</small></h3>
+      <div id="themeList" class="theme-grid"></div>
+      <h3 class="deco-h">글꼴<small>할 일·일정·메모처럼 직접 적는 글씨</small></h3>
       <label class="font-all"><input type="checkbox" id="fontAll"><span>제목·메뉴 글씨도 함께 바꾸기<small>끄면 날짜·제목·버튼은 플래너 양식 그대로 두고, 직접 적는 글씨만 바뀝니다.</small></span></label>
       <div id="fontList"></div>
     </div>
@@ -521,12 +556,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <p>‘일정’에는 시간별 약속을, ‘메모’에는 그날의 기록을 적습니다. 적는 즉시 자동 저장됩니다.</p>
       <h3>월간 달력 · 주차</h3>
       <p>월간 달력(날짜 숫자를 누르거나 메뉴 → 월간 달력)의 날짜 칸에는 그날 적은 <b>일정</b>이 시간 순서로 나옵니다. 할 일은 하루 페이지에서 봅니다. 칸에 다 들어가지 않으면 ‘+2’처럼 남은 개수가 보이고, 날짜를 누르면 그날 일정이 열립니다.</p>
-      <p>주차는 달력 한 줄(일요일~토요일)을 한 주로 셉니다. 그달 1일이 들어 있는 줄이 <b>1주차</b>입니다. 날짜 아래의 ‘2026년 45주차’는 1월 1일이 들어 있는 주를 1주차로 센 올해의 주차입니다.</p>
+      <p>날짜 옆의 <b>‘45주차’</b>는 올해의 주차입니다. 1월 1일이 들어 있는 주가 1주차이고, 일요일부터 토요일까지(달력 한 줄)를 한 주로 셉니다. 엑셀의 WEEKNUM 함수와 같은 방식이라 연말에는 53주차가 나올 수 있습니다.</p>
+      <p><b>일요일</b>에는 음력 날짜도 함께 나옵니다(하루 페이지와 월간 달력). 한국천문연구원 기준 음력이며, 2050년까지 표시됩니다. ‘윤’은 윤달입니다.</p>
       <h3>동기화</h3>
       <p>Firebase 설정(config.js)을 마치고 PC와 휴대폰에서 <b>같은 계정</b>으로 로그인하면, 한쪽에서 적은 내용이 다른 쪽에 바로 나타납니다. 인터넷이 끊겨도 계속 쓸 수 있고, 다시 연결되면 자동으로 맞춰집니다. 오른쪽 위 표시가 <b>동기화됨</b>이면 저장이 끝난 것입니다.</p>
       <p>설정 전(미리보기 모드)에는 지금 쓰는 기기에만 저장됩니다.</p>
-      <h3>글꼴</h3>
-      <p>메뉴(☰) → <b>글꼴 바꾸기</b>에서 10가지 글꼴 가운데 하나를 고릅니다. 할 일·일정·메모·사명처럼 직접 적는 글씨가 바뀌고, ‘제목·메뉴 글씨도 함께 바꾸기’를 켜면 앱 전체가 바뀝니다. 손글씨 글꼴은 같은 크기에서 작아 보이므로 조금 크게 표시합니다. 동기화를 설정했다면 고른 글꼴이 PC와 휴대폰에 함께 적용됩니다.</p>
+      <h3>색깔 · 글꼴</h3>
+      <p>메뉴(☰) → <b>색깔 · 글꼴 바꾸기</b>에서 플래너 색깔을 고릅니다. 8가지 색 가운데 고르거나 ‘직접 고르기’로 원하는 색을 정할 수 있습니다. 너무 밝은 색은 글씨가 잘 보이도록 조금 어둡게 바꿔 씁니다. 홈 화면의 앱 아이콘 색은 바뀌지 않습니다.</p>
+      <p>같은 화면에서 10가지 글꼴 가운데 하나를 고릅니다. 할 일·일정·메모·사명처럼 직접 적는 글씨가 바뀌고, ‘제목·메뉴 글씨도 함께 바꾸기’를 켜면 앱 전체가 바뀝니다. 손글씨 글꼴은 같은 크기에서 작아 보이므로 조금 크게 표시합니다. 동기화를 설정했다면 고른 글꼴이 PC와 휴대폰에 함께 적용됩니다.</p>
       <h3>백업</h3>
       <p>메뉴의 ‘백업 파일 저장’으로 모든 내용을 파일 하나로 내려받을 수 있습니다. ‘백업 파일 불러오기’로 다시 넣을 수 있습니다. 미리보기 모드에서 쓴 내용을 동기화 계정으로 옮길 때도 이 방법을 씁니다.</p>
       <h3>PC 단축키</h3>
@@ -551,14 +588,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <button data-go="month"><span class="ic">月</span>월간 달력</button>
       <button data-go="pending"><span class="ic">→</span>미처리 할 일<span class="badge" id="pendingBadge" hidden></span></button>
       <button data-go="values"><span class="ic">★</span>사명 · 가치 · 목표</button>
-      <button data-go="font"><span class="ic">가</span>글꼴 바꾸기</button>
+      <button data-go="font"><span class="ic">가</span>색깔 · 글꼴 바꾸기</button>
       <button data-go="help"><span class="ic">?</span>사용법 · 기호 안내</button>
       <hr>
       <button id="btnExport"><span class="ic">↓</span>백업 파일 저장</button>
       <button id="btnImport"><span class="ic">↑</span>백업 파일 불러오기</button>
       <button id="btnLogout" hidden><span class="ic">⎋</span>로그아웃</button>
     </nav>
-    <div class="drawer-foot">나의 플래너 v1.1</div>
+    <div class="drawer-foot">나의 플래너 v1.2</div>
   </div>
 </aside>
 <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -642,18 +679,24 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
 
 <noscript><div class="splash">이 앱은 JavaScript가 켜져 있어야 동작합니다.</div></noscript>
+<script>
+  /* 파일이 빠졌거나 예전 파일과 섞여 앱이 시작되지 못하면, '불러오는 중…' 대신 안내를 보여 줍니다 */
+  (function () {
+    function fail(detail) {
+      var s = document.getElementById('splash');
+      if (!s || s.hidden || s.getAttribute('data-failed')) return;
+      s.setAttribute('data-failed', '1');
+      s.style.padding = '24px'; s.style.textAlign = 'center'; s.style.lineHeight = '1.7';
+      s.innerHTML = '앱을 시작하지 못했습니다.<br>업데이트할 때 받은 파일이 <b>모두</b> GitHub 저장소에 올라갔는지 확인한 뒤<br>앱을 닫았다가 다시 열어 주십시오.' +
+        (detail ? '<br><small style="opacity:.75">(' + detail + ')</small>' : '');
+    }
+    window.addEventListener('error', function (e) { if (e && e.message) fail(String(e.message).replace(/[<>&"]/g, '')); });
+    setTimeout(function () { if (!window.__plannerBooted) fail(''); }, 8000);
+  })();
+</script>
 <script src="config.js"></script>
 <script src="store.js"></script>
+<script src="lunar.js"></script>
 <script src="app.js"></script>
-<script>
-  /* app.js나 store.js가 빠져 앱이 시작되지 않으면 안내 */
-  setTimeout(function () {
-    var s = document.getElementById('splash');
-    if (s && !s.hidden && !window.__plannerBooted) {
-      s.style.padding = '24px'; s.style.textAlign = 'center'; s.style.lineHeight = '1.7';
-      s.innerHTML = '앱을 시작하지 못했습니다.<br>GitHub 저장소에 app.js, store.js, config.js, firebase.js 등<br>모든 파일이 올라가 있는지 확인한 뒤 새로고침하십시오.';
-    }
-  }, 8000);
-</script>
 </body>
 </html>

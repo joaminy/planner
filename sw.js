@@ -2,8 +2,8 @@
    앱 파일을 휴대폰·PC에 보관해 두었다가 인터넷이 없을 때 꺼내 씁니다.
    인터넷이 되면 항상 최신 파일을 먼저 받으므로, GitHub에서 고친 내용이 바로 반영됩니다.
    이 파일은 수정하지 않아도 됩니다. */
-var CACHE = 'my-planner-v2';
-var SHELL = ['./', './index.html', './app.js', './store.js', './config.js', './firebase.js',
+var CACHE = 'my-planner-v3';
+var SHELL = ['./', './index.html', './app.js', './store.js', './lunar.js', './config.js', './firebase.js',
   './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
