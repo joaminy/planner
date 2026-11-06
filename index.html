@@ -155,6 +155,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .pri-A .pri{color:var(--A)} .pri-B .pri{color:var(--B)} .pri-C .pri{color:var(--C)}
 .task .body{padding:8px 4px;cursor:pointer;min-width:0}
 .task .txt{font-family:var(--content);font-size:calc(16px * var(--fs));line-height:1.4}
+.task.em .txt,.pend-item .ptxt.em,.edit-text.em{font-weight:700}
 .task .meta{font-size:calc(12px * var(--fsu));color:var(--ink-3);margin-top:2px}
 .task .meta .warn{color:var(--wine)}
 .task.st-done .txt,.task.st-fwd .txt{color:var(--ink-3)}
@@ -170,7 +171,30 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 
 /* 일정 */
 .sched-list{border-top:0}
-.sched-row{display:grid;grid-template-columns:52px 1fr;align-items:center;min-height:var(--row);border-bottom:1px solid var(--line);position:relative}
+.sched-row{display:grid;grid-template-columns:52px 1fr 40px;align-items:center;min-height:var(--row);border-bottom:1px solid var(--line);position:relative}
+/* 일정 글자 색 · 진하게 단추 ('가' 아래 막대가 지금 고른 색) */
+.sched-row .sty{justify-self:center;width:34px;height:34px;border:1px solid transparent;border-radius:8px;background:transparent;padding:0;display:grid;place-items:center}
+.sched-row .sty span{font-family:var(--serif);font-size:calc(15px * var(--fsu));font-weight:600;line-height:1.1;color:var(--ink-3);border-bottom:3px solid var(--c,var(--ink-4));padding:0 2px 1px}
+.sched-row .sty.is-set span{color:var(--c)}
+.sched-row .sty.is-b span{font-weight:800}
+.sched-row .sty:hover,.sched-row .sty.open{background:var(--paper-2);border-color:var(--line-2)}
+.sched-tools{margin:2px 0 8px;padding:10px 12px 12px;background:#fff;border:1px solid var(--line-2);border-radius:12px;box-shadow:0 6px 18px rgba(40,30,20,.12)}
+.sched-tools .st-head{font-size:calc(13.5px * var(--fsu));color:var(--ink-2);margin-bottom:8px}
+.sched-tools .st-head b{color:var(--green)}
+.sched-tools .st-head small{display:block;font-size:calc(11.5px * var(--fsu));color:var(--ink-3);margin-top:1px}
+.swatches{display:flex;flex-wrap:wrap;gap:4px 2px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:42px;padding:3px 2px;border:0;background:transparent;border-radius:9px}
+.sw i{position:relative;width:28px;height:28px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.sw span{font-size:calc(11.5px * var(--fsu));color:var(--ink-2);line-height:1.2}
+.sw.on i{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--c)}
+.sw.on i::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:700}
+.sw.on span{color:var(--ink);font-weight:700}
+.sched-tools .st-foot{display:flex;justify-content:space-between;gap:8px;margin-top:10px}
+/* 진하게 단추 (일정·할 일·메모 공통) */
+.fmt-b{height:34px;padding:0 12px;border:1px solid var(--line-2);border-radius:9px;background:#fff;font-size:calc(13.5px * var(--fsu));white-space:nowrap}
+.fmt-b b{font-family:var(--serif);font-weight:800;font-size:calc(15px * var(--fsu));margin-right:3px}
+.fmt-b:hover{border-color:var(--ink-4)}
+.fmt-b.on{background:var(--green);border-color:var(--green);color:#fff}
 .sched-row .hh{font-family:var(--serif);font-weight:600;color:var(--ink-2);font-size:calc(15px * var(--fsu));text-align:right;padding-right:12px}
 .sched-row .hh small{font-size:calc(10.5px * var(--fsu));color:var(--ink-3);margin-left:1px;font-weight:400}
 .sched-row input{border:0;background:transparent;height:calc(var(--row) - 8px);padding:0 8px;font-family:var(--content);font-size:calc(16px * var(--fs));width:100%;min-width:0;border-radius:7px}
@@ -179,8 +203,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .sched-row.now::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--wine);border-radius:2px}
 
 /* 메모 (줄 노트) */
-.notes-area{--lh:34px;display:block;width:100%;min-height:62vh;border:0;resize:vertical;padding:1px 4px 0;margin-top:4px;background-color:transparent;line-height:var(--lh);font-family:var(--content);font-size:calc(16px * var(--fs));background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 1px),var(--line) calc(var(--lh) - 1px));background-size:100% var(--lh);background-attachment:local}
+.notes-area{--lh:34px;position:relative;display:block;width:100%;min-height:62vh;border:0;padding:1px 4px 0;margin-top:4px;background-color:transparent;line-height:var(--lh);font-family:var(--content);font-size:calc(16px * var(--fs));white-space:pre-wrap;overflow-wrap:break-word;cursor:text;background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 1px),var(--line) calc(var(--lh) - 1px));background-size:100% var(--lh);background-attachment:local}
 .notes-area:focus{outline:none}
+.notes-area b,.notes-area strong{font-weight:700}
+.notes-area div,.notes-area p{margin:0}
+.notes-area.is-empty::before{content:attr(data-placeholder);position:absolute;left:4px;right:4px;top:1px;color:var(--ink-4);pointer-events:none;white-space:normal}
+.notes-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0 2px}
+.notes-tools .tip{font-size:calc(12.5px * var(--fsu));color:var(--ink-3)}
+.panel-head .linky{margin-left:auto;border:0;background:transparent;padding:2px 2px;color:var(--green);font-size:calc(13px * var(--fsu));font-weight:700;white-space:nowrap}
+.panel-head .linky:hover{text-decoration:underline}
 
 /* 휴대폰: 탭에 따라 한 패널만 */
 @media (max-width:899px){.mission-card{display:none!important}}
@@ -216,18 +247,35 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .mgrid .wkc.cur{color:var(--green);background:var(--green-tint)}
 .mgrid .wd{padding:6px 0;text-align:center;font-size:calc(12px * var(--fsu));color:var(--ink-3);border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);background:var(--paper-2)}
 .mgrid .wd.sun{color:var(--wine)} .mgrid .wd.sat{color:var(--slate)}
-.mgrid .cell{min-height:78px;border:0;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:4px 4px 5px;text-align:left;background:#fff;display:flex;flex-direction:column;gap:2px;font-size:calc(12px * var(--fsu));min-width:0}
+/* 칸 크기: --ch 칸 높이, --scfs 일정 글씨 크기 (data-size 1 작게 … 5 아주 크게) */
+.mgrid{--ch:104px;--scfs:11px}
+.mgrid[data-size="1"]{--ch:78px;--scfs:10.5px}
+.mgrid[data-size="3"]{--ch:136px;--scfs:11px}
+.mgrid[data-size="4"]{--ch:172px;--scfs:11.5px}
+.mgrid[data-size="5"]{--ch:220px;--scfs:12px}
+.mgrid .cell{height:var(--ch);border:0;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:4px 4px 5px;text-align:left;background:#fff;display:flex;flex-direction:column;gap:2px;font-size:calc(12px * var(--fsu));min-width:0;overflow:hidden}
 .mgrid .cell:hover{background:var(--paper)}
-.cell .top{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0}
+.cell .top{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0;flex:none}
+.cell .scs{position:relative;flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:2px}
+.month-tools{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:10px 12px 0;font-size:calc(13px * var(--fsu));color:var(--ink-2)}
+.month-tools .mt-lbl{font-weight:700;color:var(--green)}
+.size-ctl{display:inline-flex;align-items:center;gap:4px}
+.size-ctl .nav-btn{height:34px;min-width:38px;font-size:calc(18px * var(--fsu));font-weight:700;line-height:1;padding:0}
+.size-ctl .nav-btn:disabled{opacity:.4;cursor:default}
+.size-lbl{min-width:64px;text-align:center;font-weight:700;color:var(--ink)}
 .cell .lunar{font-size:calc(9.5px * var(--fsu));color:var(--ink-3);white-space:nowrap;letter-spacing:-.02em;line-height:1.3}
 #dayYear .lunar{color:var(--wine)}
 .cell .dn{font-family:var(--serif);font-weight:600;font-size:calc(13px * var(--fsu));width:22px;height:22px;display:grid;place-items:center}
 .cell.sun .dn{color:var(--wine)} .cell.sat .dn{color:var(--slate)}
 .cell.today .dn{color:#fff;background:var(--wine);border-radius:50%}
 .cell.sel{box-shadow:inset 0 0 0 2px var(--green)}
-.cell .sc{display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;font-family:var(--content);font-size:calc(10.5px * var(--fs));line-height:1.5;color:var(--ink-2);padding:0 1px}
-.cell .sc b{display:none;font-family:var(--sans);font-weight:700;color:var(--green);margin-right:4px}
-.cell .sc-more{font-size:calc(10.5px * var(--fsu));font-weight:700;color:var(--ink-3);padding:0 3px;line-height:1.4}
+/* 칸 안의 일정 한 개가 차지할 줄 수: data-lines 1·2·3 (칸 크기와 화면 너비에 맞춰 app.js가 정함) */
+.cell .sc{flex:none;display:block;overflow:hidden;white-space:nowrap;text-overflow:clip;font-family:var(--content);font-size:calc(var(--scfs) * var(--fs));line-height:1.45;color:var(--sc,var(--ink-2));padding:0 1px}
+.mgrid[data-lines="2"] .cell .sc,.mgrid[data-lines="3"] .cell .sc{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;word-break:normal;overflow-wrap:anywhere}
+.mgrid[data-lines="3"] .cell .sc{-webkit-line-clamp:3}
+.cell .sc.em{font-weight:700}
+.cell .sc b{display:none;font-family:var(--sans);font-weight:700;color:var(--sc,var(--green));margin-right:4px}
+.cell .sc-more{flex:none;font-size:calc(10.5px * var(--fsu));font-weight:700;color:var(--ink-3);padding:0 3px;line-height:1.4}
 .cell.blank{background:var(--paper-2);cursor:default}
 .month-legend{margin:0 12px 24px;font-size:calc(12.5px * var(--fsu));color:var(--ink-3)}
 
@@ -243,6 +291,27 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .pend-item .ptxt{font-family:var(--content);font-size:calc(16px * var(--fs))}
 .pend-item .ptxt small{font-family:var(--sans);font-size:calc(12.5px * var(--fsu))}
 .pend-empty{padding:30px 0;text-align:center;color:var(--ink-3)}
+/* 메모 모아보기 */
+.memo-search{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
+.memo-search input{flex:1 1 220px;min-width:0;height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;background:#fff;font-size:calc(16px * var(--fsu))}
+.memo-search input:focus{outline:2px solid var(--green-2);outline-offset:-1px}
+.memo-count{font-size:calc(13px * var(--fsu));color:var(--ink-3);white-space:nowrap}
+.memo-month h3{font-family:var(--serif);font-size:calc(16px * var(--fsu));color:var(--green);margin:22px 0 6px;padding-bottom:5px;border-bottom:2px solid var(--green)}
+.memo-item{padding:10px 0 12px;border-bottom:1px solid var(--line)}
+.memo-date{display:flex;align-items:baseline;gap:7px;width:100%;border:0;background:transparent;padding:2px 0;text-align:left}
+.memo-date .md-d{font-family:var(--serif);font-weight:700;font-size:calc(17px * var(--fsu));color:var(--ink)}
+.memo-date .md-w{font-size:calc(13px * var(--fsu));color:var(--ink-3)}
+.memo-date .md-w.sun{color:var(--wine)} .memo-date .md-w.sat{color:var(--slate)}
+.memo-date .md-today{font-size:calc(11.5px * var(--fsu));font-weight:700;color:#fff;background:var(--wine);border-radius:999px;padding:0 7px}
+.memo-date .md-go{margin-left:auto;font-size:calc(12.5px * var(--fsu));color:var(--green);font-weight:700;white-space:nowrap}
+.memo-date:hover .md-go{text-decoration:underline}
+.memo-body{margin-top:4px;font-family:var(--content);font-size:calc(15.5px * var(--fs));line-height:1.65;color:var(--ink);white-space:pre-wrap;overflow-wrap:break-word}
+.memo-body b{font-weight:700}
+.memo-body mark{background:#FBE7A1;color:inherit;border-radius:3px;padding:0 1px}
+.memo-item.clamp .memo-body{max-height:calc(1.65em * 7);overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent);mask-image:linear-gradient(to bottom,#000 70%,transparent)}
+.memo-more{margin-top:4px;border:0;background:transparent;padding:4px 0;color:var(--green);font-weight:700;font-size:calc(13px * var(--fsu))}
+.memo-next{display:block;margin:18px auto 0}
+.memo-empty{padding:34px 0;text-align:center;color:var(--ink-3);line-height:1.8}
 .vfield{display:block;margin:18px 0 0}
 .vfield .vl{display:block;font-family:var(--serif);font-weight:700;color:var(--green);font-size:calc(16px * var(--fsu))}
 .vfield .vl em{font-style:normal;font-size:calc(10.5px * var(--fsu));letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-left:6px;font-weight:400}
@@ -372,8 +441,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   .mgrid .wkh{padding-top:7px;font-size:calc(12px * var(--fsu));letter-spacing:0}
   .mgrid .wkc{padding-top:12px;font-size:calc(16px * var(--fsu))}
   .mgrid .wkc small{font-size:calc(11px * var(--fsu))}
-  .mgrid .cell{min-height:118px;padding:6px;gap:3px}
-  .cell .sc{font-size:calc(12px * var(--fs));text-overflow:ellipsis;padding:1px 2px}
+  .mgrid{--ch:150px;--scfs:12.5px}
+  .mgrid[data-size="1"]{--ch:118px;--scfs:12px}
+  .mgrid[data-size="3"]{--ch:188px;--scfs:13px}
+  .mgrid[data-size="4"]{--ch:232px;--scfs:13.5px}
+  .mgrid[data-size="5"]{--ch:286px;--scfs:14px}
+  .mgrid .cell{padding:6px;gap:3px}
+  .cell .scs{gap:3px}
+  .cell .sc{padding:1px 2px}
+  .mgrid[data-lines="1"] .cell .sc{text-overflow:ellipsis}
+  .month-tools{padding:12px 24px 0}
   .cell .sc b{display:inline}
   .cell .sc-more{font-size:calc(12px * var(--fsu));padding:0 2px}
   .cell .lunar{font-size:calc(11.5px * var(--fsu))}
@@ -477,8 +554,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
         <section class="panel notes">
           <div id="minical" class="minical"></div>
           <div id="missionCard" class="mission-card" hidden></div>
-          <div class="panel-head"><h2>메모 · 일일 기록</h2><span class="en">Daily Notes</span></div>
-          <textarea id="notes" class="notes-area" placeholder="오늘 있었던 일, 회의 내용, 떠오른 생각을 자유롭게 적습니다." aria-label="메모"></textarea>
+          <div class="panel-head"><h2>메모 · 일일 기록</h2><span class="en">Daily Notes</span><button type="button" class="linky" data-go="memos">메모 모아보기 ›</button></div>
+          <div class="notes-tools">
+            <button type="button" id="btnNotesBold" class="fmt-b" aria-pressed="false" title="진하게 (Ctrl+B)"><b>B</b> 진하게</button>
+            <span class="tip">강조할 글자를 고른 뒤 누르세요</span>
+          </div>
+          <div id="notes" class="notes-area is-empty" contenteditable="true" role="textbox" aria-multiline="true" aria-label="메모" data-placeholder="오늘 있었던 일, 회의 내용, 떠오른 생각을 자유롭게 적습니다."></div>
         </section>
       </div>
     </div>
@@ -494,8 +575,28 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
         <button id="mNext" class="nav-btn" aria-label="다음 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
       </div>
     </div>
-    <div id="mgrid" class="mgrid"></div>
-    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 왼쪽 숫자는 올해의 주차, 일요일 칸의 ‘음’은 음력 날짜입니다.</p>
+    <div class="month-tools">
+      <span class="mt-lbl">칸 크기</span>
+      <div class="size-ctl" role="group" aria-label="달력 칸 크기">
+        <button type="button" id="cellSmaller" class="nav-btn" aria-label="칸 작게">−</button>
+        <span id="cellSizeLabel" class="size-lbl" aria-live="polite">보통</span>
+        <button type="button" id="cellBigger" class="nav-btn" aria-label="칸 크게">+</button>
+      </div>
+    </div>
+    <div id="mgrid" class="mgrid" data-size="2"></div>
+    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 칸에 다 들어가지 않으면 ‘+2’처럼 남은 개수가 보이며, 위의 <b>칸 크기 − +</b>로 칸을 키우거나 줄일 수 있습니다. 일정 글자의 색과 진하게는 하루 페이지 일정 칸 오른쪽의 ‘가’ 단추로 정합니다. 왼쪽 숫자는 올해의 주차, 일요일 칸의 ‘음’은 음력 날짜입니다.</p>
+  </section>
+
+  <!-- ===== 메모 모아보기 ===== -->
+  <section id="memosView" class="view" hidden>
+    <div class="page-wrap">
+      <div class="page-title"><h2>메모 모아보기</h2><p>날마다 적은 메모를 최신 날짜부터 모아 보여 줍니다. 날짜를 누르면 그날 페이지가 열립니다.</p></div>
+      <div class="memo-search">
+        <input id="memoQ" type="search" placeholder="메모 검색 (예: 회의)" aria-label="메모 검색" enterkeyhint="search" autocomplete="off">
+        <span id="memoCount" class="memo-count" aria-live="polite"></span>
+      </div>
+      <div id="memoList" class="memo-list"></div>
+    </div>
   </section>
 
   <!-- ===== 미처리 할 일 ===== -->
@@ -551,11 +652,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
         <tr><td><span class="ini-demo">김</span></td><td><b>위임</b> — 다른 사람에게 맡긴 일. 동그라미 안에 그 사람 이름의 첫 글자가 표시됩니다.</td></tr>
         <tr><td style="color:var(--wine)">✕</td><td><b>취소</b> — 더 이상 할 필요가 없어진 일. 기록은 남깁니다.</td></tr>
       </table>
-      <p>할 일 글자를 누르면 편집 화면이 열립니다. 여기서 내용, A·B·C, 순서, 상태, 넘길 날짜를 바꿉니다.</p>
+      <p>할 일 글자를 누르면 편집 화면이 열립니다. 여기서 내용, A·B·C, 순서, 상태, 넘길 날짜를 바꿉니다. <b>진하게 (강조)</b>를 누르면 그 할 일이 굵은 글씨로 보입니다(다른 날로 넘겨도 그대로 유지).</p>
       <h3>일정 · 메모</h3>
       <p>‘일정’에는 시간별 약속을, ‘메모’에는 그날의 기록을 적습니다. 적는 즉시 자동 저장됩니다.</p>
+      <h3>일정 글자 색 · 진하게</h3>
+      <p>일정을 적으면 그 줄 오른쪽에 <b>‘가’ 단추</b>가 생깁니다. 누르면 글자 색(기본·빨강·주황·초록·파랑·보라·분홍)과 <b>진하게</b>를 고르는 창이 열립니다. 예를 들어 중요한 일정은 빨강 + 진하게로 표시합니다. 고른 모양은 월간 달력에도 똑같이 나옵니다. 일정 글자를 모두 지우면 색과 진하게도 함께 지워집니다.</p>
+      <h3>메모 진하게 · 메모 모아보기</h3>
+      <p>메모에서 강조할 글자를 손가락이나 마우스로 고른 뒤 <b>B 진하게</b>를 누릅니다. 다시 누르면 보통 글씨로 돌아갑니다. PC에서는 <span class="kbd">Ctrl</span>+<span class="kbd">B</span>도 됩니다. 글자를 고르지 않고 누르면 이어서 쓰는 글자부터 진하게 써집니다.</p>
+      <p>메뉴 → <b>메모 모아보기</b>(또는 메모 칸 위의 ‘메모 모아보기 ›’)에서 날마다 적은 메모를 최신 날짜부터 한꺼번에 봅니다. 검색 칸에 낱말을 적으면 그 낱말이 들어간 메모만 노란색 표시와 함께 나오고, 날짜를 누르면 그날 페이지가 열립니다.</p>
       <h3>월간 달력 · 주차</h3>
       <p>월간 달력(날짜 숫자를 누르거나 메뉴 → 월간 달력)의 날짜 칸에는 그날 적은 <b>일정</b>이 시간 순서로 나옵니다. 할 일은 하루 페이지에서 봅니다. 칸에 다 들어가지 않으면 ‘+2’처럼 남은 개수가 보이고, 날짜를 누르면 그날 일정이 열립니다.</p>
+      <p>달력 위의 <b>칸 크기 − +</b>로 칸을 다섯 단계(작게·보통·크게·더 크게·아주 크게)로 바꿀 수 있습니다. 칸이 클수록 일정이 더 많이, 더 길게 보입니다. PC와 휴대폰은 화면 크기가 달라서 칸 크기를 기기마다 따로 기억합니다.</p>
       <p>날짜 옆의 <b>‘45주차’</b>는 올해의 주차입니다. 1월 1일이 들어 있는 주가 1주차이고, 일요일부터 토요일까지(달력 한 줄)를 한 주로 셉니다. 엑셀의 WEEKNUM 함수와 같은 방식이라 연말에는 53주차가 나올 수 있습니다.</p>
       <p><b>일요일</b>에는 음력 날짜도 함께 나옵니다(하루 페이지와 월간 달력). 한국천문연구원 기준 음력이며, 2050년까지 표시됩니다. ‘윤’은 윤달입니다.</p>
       <h3>동기화</h3>
@@ -571,6 +678,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
         <li><span class="kbd">←</span> <span class="kbd">→</span> 전날 · 다음 날</li>
         <li><span class="kbd">T</span> 오늘로 이동</li>
         <li><span class="kbd">N</span> 새 할 일 입력칸으로 이동</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">B</span> 메모에서 고른 글자 진하게 (Mac은 <span class="kbd">⌘</span>+<span class="kbd">B</span>)</li>
         <li><span class="kbd">Esc</span> 열린 창 닫기</li>
       </ul>
       <p style="margin-top:22px;color:var(--ink-3);font-size:calc(13px * var(--fsu))">하루 페이지 위의 명언은 벤저민 프랭클린의 글(『가난한 리처드의 달력』, 『자서전』의 13가지 덕목 등)을 우리말로 옮긴 것입니다.</p>
@@ -586,6 +694,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     <nav>
       <button data-go="day"><span class="ic">日</span>오늘 페이지</button>
       <button data-go="month"><span class="ic">月</span>월간 달력</button>
+      <button data-go="memos"><span class="ic">記</span>메모 모아보기</button>
       <button data-go="pending"><span class="ic">→</span>미처리 할 일<span class="badge" id="pendingBadge" hidden></span></button>
       <button data-go="values"><span class="ic">★</span>사명 · 가치 · 목표</button>
       <button data-go="font"><span class="ic">가</span>색깔 · 글꼴 바꾸기</button>
@@ -595,7 +704,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <button id="btnImport"><span class="ic">↑</span>백업 파일 불러오기</button>
       <button id="btnLogout" hidden><span class="ic">⎋</span>로그아웃</button>
     </nav>
-    <div class="drawer-foot">나의 플래너 v1.2</div>
+    <div class="drawer-foot">나의 플래너 v1.3</div>
   </div>
 </aside>
 <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -607,6 +716,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     <div class="sheet-grab"></div>
     <div class="sheet-head"><span id="sheetLabel" class="lbl"></span><span id="sheetTitle" class="t">할 일 편집</span><button class="btn small" data-close="sheet">닫기</button></div>
     <textarea id="editText" class="edit-text" rows="2" aria-label="할 일 내용"></textarea>
+    <div class="row sub-row"><button type="button" class="fmt-b" id="btnTaskBold" aria-pressed="false"><b>B</b> 진하게 (강조)</button></div>
     <div class="field">
       <span class="flbl">우선순위와 순서</span>
       <div class="row">
@@ -692,6 +802,21 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     }
     window.addEventListener('error', function (e) { if (e && e.message) fail(String(e.message).replace(/[<>&"]/g, '')); });
     setTimeout(function () { if (!window.__plannerBooted) fail(''); }, 8000);
+    /* index.html만 새 버전이고 app.js가 예전 버전이면, 메모가 저장되지 않을 수 있으므로 쓰기 전에 막고 안내 */
+    function versionCheck() {
+      if (window.__plannerApp === 'v1.3' || document.getElementById('versionGuard')) return;
+      var app = document.getElementById('app'), login = document.getElementById('login');
+      if (!(window.__plannerBooted || (app && !app.hidden) || (login && !login.hidden))) return;   // app.js가 아직 시작 전
+      var o = document.createElement('div');
+      o.className = 'splash'; o.id = 'versionGuard'; o.style.zIndex = '100'; o.style.padding = '24px'; o.style.textAlign = 'center'; o.style.lineHeight = '1.7';
+      o.innerHTML = '<div>앱 파일이 일부만 새 버전으로 열렸습니다.<br>인터넷 연결을 확인하고 아래 단추를 눌러 다시 불러와 주십시오.' +
+        '<br><button type="button" style="margin:14px 0;height:44px;padding:0 20px;border:0;border-radius:10px;background:#F3EEDF;color:#1F4D3C;font-weight:700;font-size:16px">다시 불러오기</button>' +
+        '<br><small style="opacity:.85">그래도 이 화면이 나오면, 업데이트할 때 받은 파일 <b>6개</b>(index.html, app.js, store.js, lunar.js, firebase.js, sw.js)를<br>GitHub 저장소에 <b>모두</b> 다시 올리고 1~2분 뒤 앱을 다시 열어 주십시오.</small></div>';
+      o.querySelector('button').onclick = function () { location.reload(); };
+      document.body.appendChild(o);
+    }
+    document.addEventListener('DOMContentLoaded', versionCheck);
+    setTimeout(versionCheck, 3000);
   })();
 </script>
 <script src="config.js"></script>

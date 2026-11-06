@@ -34,19 +34,48 @@
     if (t.fwdId) out.fwdId = String(t.fwdId).slice(0, 60);
     if (t.fwdFrom && DATE_RE.test(t.fwdFrom)) out.fwdFrom = t.fwdFrom;
     if (t.fwdCount) out.fwdCount = Number(t.fwdCount) || 0;
+    if (t.bold === true) out.bold = true;
     return out;
+  }
+  /* 일정 글자 꾸미기: { c: 색 이름(빈칸 = 기본), b: 진하게 } */
+  var SCHED_COLORS = ['', 'red', 'orange', 'green', 'blue', 'purple', 'pink'];
+  function cleanStyle(v) {
+    if (!v || typeof v !== 'object') return null;
+    return { c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true };
   }
   function cleanDay(d) {
     var out = {};
     if (!d || typeof d !== 'object') return out;
     if (typeof d.notes === 'string') out.notes = d.notes.slice(0, 100000);
+    if (typeof d.notesHtml === 'string') out.notesHtml = d.notesHtml.slice(0, 300000);
     if (d.sched && typeof d.sched === 'object') {
       out.sched = {};
       Object.keys(d.sched).forEach(function (h) {
         if (/^\d{2}$/.test(h)) out.sched[h] = String(d.sched[h] == null ? '' : d.sched[h]).slice(0, 500);
       });
     }
+    if (d.schedStyle && typeof d.schedStyle === 'object') {
+      out.schedStyle = {};
+      Object.keys(d.schedStyle).forEach(function (h) {
+        var s = cleanStyle(d.schedStyle[h]);
+        if (/^\d{2}$/.test(h) && s) out.schedStyle[h] = s;
+      });
+    }
     return out;
+  }
+  /* 하루 문서에 변경 내용 합치기 (일정·글자 꾸미기는 시간별로 합치고, 메모는 통째로 바꿈) */
+  function mergeDay(d, patch) {
+    ['sched', 'schedStyle'].forEach(function (k) {
+      if (patch[k] && typeof patch[k] === 'object') d[k] = Object.assign({}, d[k] || {}, clone(patch[k]));
+    });
+    ['notes', 'notesHtml'].forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(patch, k)) d[k] = patch[k];
+    });
+  }
+  /* 메모가 있는 날만 골라 최신 날짜부터 */
+  function memoList(entries) {
+    return entries.filter(function (e) { return typeof e.notes === 'string' && e.notes.trim(); })
+      .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   }
   function cleanProfile(p) {
     var out = {};
@@ -134,15 +163,29 @@
       cb(self._tasks().filter(function (t) { return t.date >= from && t.date <= to; }).map(clone));
     });
   };
-  /* 한 달 치 일정: { '2026-11-05': { '09': '회의', ... }, ... } */
+  /* 한 달 치 일정: { '2026-11-05': { '09': '회의', ... }, ... }
+     두 번째 값은 글자 꾸미기: { '2026-11-05': { '09': { c: 'red', b: true } } } */
   LocalStore.prototype.watchSchedRange = function (from, to, cb) {
     var self = this;
     return this._sub(function () {
-      var days = self.data.days || {}, out = {};
+      var days = self.data.days || {}, out = {}, style = {};
       Object.keys(days).forEach(function (date) {
-        if (date >= from && date <= to && days[date] && days[date].sched) out[date] = clone(days[date].sched);
+        if (date < from || date > to || !days[date]) return;
+        if (days[date].sched) out[date] = clone(days[date].sched);
+        if (days[date].schedStyle) style[date] = clone(days[date].schedStyle);
       });
-      cb(out);
+      cb(out, style);
+    });
+  };
+  /* 메모 모아보기: [{ date, notes, notesHtml }, ...] 최신 날짜부터 */
+  LocalStore.prototype.watchNotes = function (cb) {
+    var self = this;
+    return this._sub(function () {
+      var days = self.data.days || {};
+      cb(memoList(Object.keys(days).map(function (date) {
+        var d = days[date] || {};
+        return { date: date, notes: d.notes, notesHtml: d.notesHtml };
+      })));
     });
   };
   LocalStore.prototype.watchProfile = function (cb) {
@@ -171,8 +214,7 @@
   };
   LocalStore.prototype.setDay = function (date, patch) {
     var d = this.data.days[date] || (this.data.days[date] = {});
-    if (patch.sched) d.sched = Object.assign({}, d.sched || {}, patch.sched);
-    if (Object.prototype.hasOwnProperty.call(patch, 'notes')) d.notes = patch.notes;
+    mergeDay(d, patch);
     d.updated = Date.now();
     this._save(); this._changed();
   };
@@ -194,8 +236,7 @@
       else if (op.type === 'remove') { delete self.data.tasks[op.id]; }
       else if (op.type === 'day') {
         var d = self.data.days[op.date] || (self.data.days[op.date] = {});
-        if (op.data.sched) d.sched = Object.assign({}, d.sched || {}, op.data.sched);
-        if (Object.prototype.hasOwnProperty.call(op.data, 'notes')) d.notes = op.data.notes;
+        mergeDay(d, op.data);
       }
       else if (op.type === 'profile') {
         self.data.profile = Object.assign({}, self.data.profile || {}, op.data);
@@ -350,12 +391,23 @@
     }
     var q = FB.query(this.daysCol, FB.where(FB.documentId(), '>=', from), FB.where(FB.documentId(), '<=', to));
     return this._listen(q, function (snap) {
-      var out = {};
+      var out = {}, style = {};
       snap.docs.forEach(function (d) {
         var v = d.data();
         if (v && v.sched) out[d.id] = v.sched;
+        if (v && v.schedStyle) style[d.id] = v.schedStyle;
       });
-      cb(out);
+      cb(out, style);
+    });
+  };
+  /* 메모 모아보기: 메모 칸이 비어 있지 않은 날만 읽음 */
+  FirebaseStore.prototype.watchNotes = function (cb) {
+    var FB = this.FB;
+    return this._listen(FB.query(this.daysCol, FB.where('notes', '>', '')), function (snap) {
+      cb(memoList(snap.docs.map(function (d) {
+        var v = d.data() || {};
+        return { date: d.id, notes: v.notes, notesHtml: v.notesHtml };
+      })));
     });
   };
   FirebaseStore.prototype.watchProfile = function (cb) {

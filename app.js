@@ -46,6 +46,28 @@
       return { m: l.month, d: l.day, leap: !!l.intercalation };
     } catch (e) { return null; }
   }
+  /* 일정 글자 색 — 흰 바탕·종이 바탕 모두에서 글씨가 또렷하게 보이는 색(대비 4.5:1 이상)만 */
+  var SCHED_COLORS = [
+    { id: '', name: '기본', hex: '' },
+    { id: 'red', name: '빨강', hex: '#C62828' },
+    { id: 'orange', name: '주황', hex: '#C2410C' },
+    { id: 'green', name: '초록', hex: '#2E7D32' },
+    { id: 'blue', name: '파랑', hex: '#1565C0' },
+    { id: 'purple', name: '보라', hex: '#6A1B9A' },
+    { id: 'pink', name: '분홍', hex: '#AD1457' }
+  ];
+  function colorHex(id) {
+    for (var i = 0; i < SCHED_COLORS.length; i++) if (id && SCHED_COLORS[i].id === id) return SCHED_COLORS[i].hex;
+    return '';
+  }
+  /* 그 시간 일정의 글자 꾸미기 { c: 색 이름(빈칸 = 기본), b: 진하게 } */
+  function styleOf(map, h) {
+    var s = map && map[h];
+    return { c: s && colorHex(s.c) ? s.c : '', b: !!(s && s.b === true) };
+  }
+  /* 월간 달력 칸 크기 (PC와 휴대폰은 화면이 달라 기기마다 따로 기억) */
+  var CELL_SIZES = ['작게', '보통', '크게', '더 크게', '아주 크게'];
+
   var PRI_ORDER = { A: 0, B: 1, C: 2 };
   var ACTIVE = ['open', 'prog'];
   var HOURS = []; for (var hh = 6; hh <= 22; hh++) HOURS.push(pad(hh));
@@ -152,6 +174,95 @@
     };
   }
 
+  /* ───────── 메모 글자 꾸미기 (진하게) ─────────
+     메모는 줄마다 글 조각 [{ t: 글자, b: 진하게 }]의 목록으로 다룹니다.
+     저장할 때는 notes(그냥 글자 — 예전 버전·검색용)와 notesHtml(<b>·<br>만 쓴 HTML)을 함께 저장합니다. */
+  var RT_BLOCK = /^(DIV|P|LI|UL|OL|H[1-6]|BLOCKQUOTE|PRE|SECTION|ARTICLE|HEADER|FOOTER|ASIDE|NAV|MAIN|ADDRESS|FIGURE|TABLE|THEAD|TBODY|TFOOT|TR|TD|TH|DL|DT|DD|HR)$/;
+  var RT_SKIP = /^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|IFRAME|OBJECT|EMBED|SVG|MATH|HEAD|TITLE|META|LINK|IMG|VIDEO|AUDIO|CANVAS|INPUT|TEXTAREA|SELECT|BUTTON)$/;
+  function rtBold(el, bold) {
+    if (el.nodeName === 'B' || el.nodeName === 'STRONG') bold = true;
+    var fw = el.style && el.style.fontWeight;
+    if (fw) {
+      if (fw === 'bold' || fw === 'bolder' || +fw >= 600) bold = true;
+      else if (fw === 'normal' || fw === 'lighter' || (+fw > 0 && +fw < 600)) bold = false;
+    }
+    return bold;
+  }
+  /* 화면(DOM)의 글 → 줄 목록. 브라우저가 줄바꿈을 <br>로 넣든 <div>로 넣든 보이는 줄 그대로 읽음 */
+  function rtFromDom(root) {
+    var lines = [], cur = null;
+    function push(t, b) {
+      if (!cur) cur = [];
+      var last = cur[cur.length - 1];
+      if (last && last.b === b) last.t += t; else cur.push({ t: t, b: b });
+    }
+    function brk() { lines.push(cur || []); cur = []; }                 // 줄바꿈: 지금 줄을 닫고 새 줄을 엶
+    function boundary() { if (cur && cur.length) lines.push(cur); cur = null; }  // 문단 경계: 비어 있는 새 줄은 버림
+    (function walk(node, bold) {
+      for (var n = node.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3) {
+          var parts = n.nodeValue.replace(/ /g, ' ').replace(/\r\n?/g, '\n').split('\n');
+          for (var i = 0; i < parts.length; i++) {
+            if (i) brk();
+            if (parts[i]) push(parts[i], bold);
+          }
+        } else if (n.nodeType === 1 && !RT_SKIP.test(n.nodeName)) {
+          if (n.nodeName === 'BR') { brk(); continue; }
+          var block = RT_BLOCK.test(n.nodeName);
+          if (block) boundary();
+          walk(n, rtBold(n, bold));
+          if (block) boundary();
+        }
+      }
+    })(root, false);
+    boundary();
+    return lines;
+  }
+  function rtFromText(text) {
+    return String(text || '').split('\n').map(function (l) { return l ? [{ t: l, b: false }] : []; });
+  }
+  function rtFromHtml(html) {
+    var tpl = document.createElement('template');   // template 안의 내용은 실행·표시되지 않음
+    tpl.innerHTML = html;
+    return rtFromDom(tpl.content);
+  }
+  function rtText(lines) { return lines.map(function (l) { return l.map(function (r) { return r.t; }).join(''); }).join('\n'); }
+  function rtHasBold(lines) { return lines.some(function (l) { return l.some(function (r) { return r.b && r.t.trim(); }); }); }
+  /* 줄 목록 → 화면용 HTML (<b>와 <br>만 사용). ranges: 검색어 위치 [[시작, 끝), ...] → <mark> */
+  function rtHtml(lines, ranges) {
+    ranges = ranges || [];
+    var out = '', pos = 0, ri = 0;
+    lines.forEach(function (line, li) {
+      if (li) { out += '<br>'; pos += 1; }
+      line.forEach(function (run) {
+        var t = run.t, start = pos, end = pos + t.length, c = start, h = '';
+        while (c < end) {
+          while (ri < ranges.length && ranges[ri][1] <= c) ri++;
+          var r = ranges[ri];
+          if (r && r[0] < end) {
+            if (r[0] > c) { h += esc(t.slice(c - start, r[0] - start)); c = r[0]; }
+            var e = Math.min(r[1], end);
+            h += '<mark>' + esc(t.slice(c - start, e - start)) + '</mark>';
+            c = e;
+          } else { h += esc(t.slice(c - start)); c = end; }
+        }
+        out += run.b ? '<b>' + h + '</b>' : h;
+        pos = end;
+      });
+    });
+    if (lines.length > 1 && !lines[lines.length - 1].length) out += '<br>';   // 마지막 빈 줄이 보이도록
+    return out;
+  }
+  /* 저장된 하루 메모 → 줄 목록. 예전 버전 앱이 그냥 글자(notes)만 고쳤으면 그쪽을 따름 */
+  function memoLines(day) {
+    var plain = day && typeof day.notes === 'string' ? day.notes : '';
+    if (day && typeof day.notesHtml === 'string' && day.notesHtml) {
+      var lines = rtFromHtml(day.notesHtml);
+      if (rtText(lines) === plain) return lines;
+    }
+    return rtFromText(plain);
+  }
+
   /* ───────── 앱 상태 ───────── */
   var S = {
     store: null, mode: null, user: null,
@@ -159,12 +270,14 @@
     view: 'day', tab: 'tasks',
     tasks: [], day: {}, dayLoaded: false,
     pending: [], profile: {},
-    sched: {}, schedKey: '', monthCursor: monthKey(today()),
+    sched: {}, schedStyle: {}, schedKey: '', monthCursor: monthKey(today()),
+    cellSize: Math.min(5, Math.max(1, parseInt(readPref('cellSize', '2'), 10) || 2)),
+    memos: null, memoQ: '', memoLimit: 60,
     addPri: readPref('addPri', 'A'),
     font: 'noto-sans', fontAll: false,
     theme: 'green', themeColor: '',
     editId: null,
-    unsub: { day: null, pending: null, sched: null, profile: null }
+    unsub: { day: null, pending: null, sched: null, profile: null, memos: null }
   };
   var FBA = null; // { FB, app, auth, db }
 
@@ -174,12 +287,16 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
+    window.__plannerApp = 'v1.3';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
     bindEvents();
     buildSchedRows();
+    buildSchedTools();
     buildMonthTabs();
     setAddPri(S.addPri);
+    applyCellSize(S.cellSize);
+    try { document.execCommand('styleWithCSS', false, false); } catch (e) { /* 진하게는 <b>로 */ }
     registerSW();
 
     var cfg = window.PLANNER_CONFIG;
@@ -302,6 +419,9 @@
     store.onStatus = setSync;
     store.onError = function (e, ctx) { toast(describeError(e, ctx), 'error', null, 6000); };
     if (store.kind === 'local') setSync('local');
+    if (typeof store.watchNotes !== 'function') {   // store.js만 예전 파일일 때: 글자 꾸미기·메모 모아보기가 저장되지 않으므로 바로 알림
+      toast('store.js 파일이 예전 버전입니다. 업데이트 파일을 모두 다시 올려 주세요.', 'error', null, 10000);
+    }
     S.unsub.profile = store.watchProfile(function (p) {
       S.profile = p || {};
       if (typeof S.profile.font === 'string' &&
@@ -336,6 +456,7 @@
     if (!S.store) return;
     if (S.unsub.day) S.unsub.day();
     var date = S.date;
+    closeSchedTools();
     S.tasks = []; S.day = {}; S.dayLoaded = false;
     renderTasks(); renderSched(); renderNotes(true);
     S.unsub.day = S.store.watchDay(date, function (r) {
@@ -355,15 +476,34 @@
     }
     if (S.schedKey === mk && S.unsub.sched) return;
     if (S.unsub.sched) S.unsub.sched();
-    S.schedKey = mk; S.sched = {};
+    S.schedKey = mk; S.sched = {}; S.schedStyle = {};
     var p = mk.split('-'), y = +p[0], m = +p[1];
     var from = mk + '-01', to = mk + '-' + pad(lastDay(y, m));
-    S.unsub.sched = S.store.watchSchedRange(from, to, function (map) {
+    S.unsub.sched = S.store.watchSchedRange(from, to, function (map, style) {
       if (S.schedKey !== mk) return;
       S.sched = map || {};
+      S.schedStyle = style || {};   // 예전 store.js면 비어 있음(글자 꾸미기 없이 표시)
       renderMiniCal();
       if (S.view === 'month') renderMonth();
     });
+  }
+
+  /* 메모 모아보기: 그 화면을 보는 동안만 읽음 */
+  function subscribeMemos() {
+    if (!S.store || S.unsub.memos) return;
+    if (typeof S.store.watchNotes !== 'function') {   // store.js가 예전 파일일 때
+      S.memos = [];
+      toast('메모 모아보기를 쓰려면 store.js 파일도 새 버전으로 올려 주세요.', 'error', null, 8000);
+      return;
+    }
+    S.memos = null;
+    S.unsub.memos = S.store.watchNotes(function (list) {
+      S.memos = list || [];
+      if (S.view === 'memos') renderMemos();
+    });
+  }
+  function unsubscribeMemos() {
+    if (S.unsub.memos) { S.unsub.memos(); S.unsub.memos = null; }
   }
 
   /* ───────── 동기화 표시 ───────── */
@@ -457,7 +597,7 @@
     if (st === 'fwd' && t.fwdTo) meta.push('→ ' + md(t.fwdTo) + '로 넘김');
     if (st === 'deleg') meta.push(esc(t.who || '누군가') + '에게 맡김');
     if (st === 'prog') meta.push('진행 중');
-    return '<li class="task st-' + st + ' pri-' + esc(t.pri) + '" data-id="' + esc(t.id) + '">' +
+    return '<li class="task st-' + st + ' pri-' + esc(t.pri) + (t.bold ? ' em' : '') + '" data-id="' + esc(t.id) + '">' +
       '<button class="st" data-act="toggle" aria-label="' + label + ' ' + STATUS_NAME[st] + ', 눌러서 상태 바꾸기">' + statusSymbol(t) + '</button>' +
       '<span class="pri">' + label + '</span>' +
       '<div class="body" data-act="edit"><div class="txt">' + esc(t.text) + '</div>' +
@@ -481,26 +621,99 @@
   function buildSchedRows() {
     $('#schedList').innerHTML = HOURS.map(function (h) {
       return '<div class="sched-row" data-h="' + h + '"><div class="hh">' + (+h) + '<small>시</small></div>' +
-        '<input type="text" data-h="' + h + '" aria-label="' + (+h) + '시 일정" maxlength="200"></div>';
+        '<input type="text" data-h="' + h + '" aria-label="' + (+h) + '시 일정" maxlength="200">' +
+        '<button type="button" class="sty" data-sty="' + h + '" aria-label="' + (+h) + '시 일정 글자 색 · 진하게" title="글자 색 · 진하게" hidden><span>가</span></button></div>';
     }).join('');
   }
 
+  /* 일정 글자 꾸미기 창: 고른 시간 줄 바로 아래에 펼쳐짐 */
+  var schedToolsH = null;
+  function buildSchedTools() {
+    var el = document.createElement('div');
+    el.id = 'schedTools'; el.className = 'sched-tools'; el.hidden = true;
+    el.setAttribute('role', 'group'); el.setAttribute('aria-label', '일정 글자 꾸미기');
+    el.innerHTML = '<div class="st-head"><b id="schedToolsTitle"></b> 글자 색 · 진하게<small>월간 달력에도 같은 모양으로 나옵니다</small></div>' +
+      '<div class="swatches">' + SCHED_COLORS.map(function (c) {
+        return '<button type="button" class="sw" data-c="' + c.id + '" style="--c:' + (c.hex || 'var(--ink)') + '" aria-label="' + c.name + '" title="' + c.name + '" aria-pressed="false"><i></i><span>' + c.name + '</span></button>';
+      }).join('') + '</div>' +
+      '<div class="st-foot"><button type="button" class="fmt-b" id="schedBold" aria-pressed="false"><b>B</b> 진하게</button>' +
+      '<button type="button" class="btn small st-close">닫기</button></div>';
+    document.body.appendChild(el);
+  }
+  function openSchedTools(h) {
+    var row = $('#schedList .sched-row[data-h="' + h + '"]'), tools = $('#schedTools');
+    if (!row || !tools) return;
+    if (schedToolsH === h && !tools.hidden) { closeSchedTools(); return; }
+    schedToolsH = h;
+    row.parentNode.insertBefore(tools, row.nextSibling);
+    tools.hidden = false;
+    renderSchedTools();
+  }
+  function closeSchedTools() {
+    schedToolsH = null;
+    var tools = $('#schedTools');
+    if (tools) tools.hidden = true;
+    $$('#schedList .sty.open').forEach(function (b) { b.classList.remove('open'); });
+  }
+  function renderSchedTools() {
+    if (!schedToolsH) return;
+    var st = styleOf(S.day && S.day.schedStyle, schedToolsH);
+    $('#schedToolsTitle').textContent = (+schedToolsH) + '시 일정';
+    $$('#schedTools .sw').forEach(function (b) {
+      var on = b.dataset.c === st.c;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var bb = $('#schedBold');
+    bb.classList.toggle('on', st.b); bb.setAttribute('aria-pressed', st.b ? 'true' : 'false');
+    $$('#schedList .sty').forEach(function (b) { b.classList.toggle('open', b.dataset.sty === schedToolsH); });
+  }
+  function paintSchedRow(row, st) {
+    var input = $('input', row), btn = $('.sty', row), hex = colorHex(st.c);
+    input.style.color = hex;
+    input.style.fontWeight = st.b ? '700' : '';
+    btn.style.setProperty('--c', hex || 'var(--ink-4)');
+    btn.classList.toggle('is-set', !!hex);
+    btn.classList.toggle('is-b', st.b);
+    btn.hidden = !input.value.trim() && schedToolsH !== row.dataset.h;
+  }
+  function setSchedStyle(h, patch) {
+    if (!S.store || !h) return;
+    flushSched();   // 적고 있던 글자를 먼저 저장
+    var cur = styleOf(S.day && S.day.schedStyle, h), map = {};
+    map[h] = { c: 'c' in patch ? patch.c : cur.c, b: 'b' in patch ? !!patch.b : cur.b };
+    S.day = S.day || {};
+    S.day.schedStyle = Object.assign({}, S.day.schedStyle || {}, map);   // 화면에 바로 반영
+    S.store.setDay(S.date, { schedStyle: map });
+    renderSched();
+  }
+
   function renderSched() {
-    var sched = (S.day && S.day.sched) || {}, nowH = pad(new Date().getHours()), isToday = S.date === today(), n = 0;
+    var sched = (S.day && S.day.sched) || {}, style = (S.day && S.day.schedStyle) || {};
+    var nowH = pad(new Date().getHours()), isToday = S.date === today(), n = 0;
     $$('#schedList .sched-row').forEach(function (row) {
       var h = row.dataset.h, input = $('input', row), key = S.date + '|' + h;
       row.classList.toggle('now', isToday && h === nowH);
       if (document.activeElement !== input && !schedPending.has(key)) input.value = sched[h] || '';
+      paintSchedRow(row, styleOf(style, h));
       if ((sched[h] || '').trim()) n++;
     });
     $('#cntSched').textContent = n ? String(n) : '';
+    renderSchedTools();
   }
 
+  /* 메모 칸 (진하게를 쓸 수 있는 글 상자) */
+  function notesLooksEmpty(ed) {
+    return !ed.textContent && ed.querySelectorAll('br').length <= 1 && ed.querySelectorAll('div,p').length <= 1;
+  }
   function renderNotes(force) {
-    var ta = $('#notes');
+    var ed = $('#notes');
     if (notesPending && notesPending.date === S.date) return;
-    if (!force && document.activeElement === ta) return;
-    ta.value = (S.day && S.day.notes) || '';
+    if (!force && document.activeElement === ed) return;
+    var lines = memoLines(S.day || {}), html = rtHtml(lines);
+    ed.dataset.date = S.date;
+    if (force || rtHtml(rtFromDom(ed)) !== html) { ed.innerHTML = html; notesRange = null; }
+    ed.classList.toggle('is-empty', notesLooksEmpty(ed));
+    notesBoldState();
   }
 
   function renderPendingBanner() {
@@ -513,13 +726,16 @@
     badge.hidden = !past.length;
   }
 
-  /* 하루 일정({ '09': '회의', ... })을 시간 순서 목록으로 */
-  function schedEntries(sched) {
+  /* 하루 일정({ '09': '회의', ... })을 시간 순서 목록으로 (글자 색·진하게 포함) */
+  function schedEntries(sched, style) {
     var out = [];
     if (!sched || typeof sched !== 'object') return out;
     Object.keys(sched).sort().forEach(function (h) {
       var text = String(sched[h] == null ? '' : sched[h]).trim();
-      if (/^\d{2}$/.test(h) && text) out.push({ h: +h, text: text });
+      if (/^\d{2}$/.test(h) && text) {
+        var st = styleOf(style, h);
+        out.push({ h: +h, text: text, c: st.c, b: st.b });
+      }
     });
     return out;
   }
@@ -551,8 +767,7 @@
     var p = S.monthCursor.split('-'), y = +p[0], m = +p[1];
     $('#monthTitle').textContent = y + '년 ' + m + '월';
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var map = S.schedKey === S.monthCursor ? S.sched : {};
-    var wide = !!(mqWide && mqWide.matches), max = wide ? 4 : 3;   // 한 칸에 보일 일정 줄 수
+    var map = S.schedKey === S.monthCursor ? S.sched : {}, smap = S.schedKey === S.monthCursor ? S.schedStyle : {};
     var rows = Math.ceil((first + days) / 7);
     var html = '<div class="wkh">주차</div>' +
       WD.map(function (w, i) { return '<div class="wd ' + (i === 0 ? 'sun' : i === 6 ? 'sat' : '') + '">' + w + '</div>'; }).join('');
@@ -561,25 +776,69 @@
       for (var c = 0; c < 7; c++) {
         var d = r * 7 + c - first + 1;
         if (d < 1 || d > days) { cells += '<div class="cell blank"></div>'; continue; }
-        var ds = S.monthCursor + '-' + pad(d), list = schedEntries(map[ds]);
+        var ds = S.monthCursor + '-' + pad(d), list = schedEntries(map[ds], smap && smap[ds]);
         var cls = ['cell']; if (c === 0) cls.push('sun'); if (c === 6) cls.push('sat');
         if (ds === t0) { cls.push('today'); hasToday = true; }
         if (ds === S.date) cls.push('sel');
-        var shown = list.length > max ? list.slice(0, max - 1) : list;
         var lu = c === 0 ? lunarOf(ds) : null;   // 일요일 칸에는 음력
         var inner = '<span class="top"><span class="dn">' + d + '</span>' +
           (lu ? '<span class="lunar">음 ' + (lu.leap ? '윤' : '') + lu.m + '.' + lu.d + '</span>' : '') + '</span>';
-        for (var k = 0; k < shown.length; k++) {
-          inner += '<span class="sc"><b>' + shown[k].h + '시</b>' + esc(shown[k].text) + '</span>';
+        if (list.length) {
+          inner += '<span class="scs">' + list.map(function (e) {
+            var hex = colorHex(e.c);
+            return '<span class="sc' + (e.b ? ' em' : '') + '"' + (hex ? ' style="--sc:' + hex + '"' : '') + '><b>' + e.h + '시</b>' + esc(e.text) + '</span>';
+          }).join('') + '</span><span class="sc-more" hidden></span>';
         }
-        if (list.length > shown.length) inner += '<span class="sc-more">+' + (list.length - shown.length) + (wide ? '개 더' : '') + '</span>';
         cells += '<button class="' + cls.join(' ') + '" data-date="' + ds + '" aria-label="' + m + '월 ' + d + '일' +
-          (list.length ? ', 일정 ' + list.length + '개' : '') + '">' + inner + '</button>';
+          (list.length ? ', 일정 ' + list.length + '개' : '') + '"' +
+          (list.length ? ' title="' + esc(list.map(function (e) { return e.h + '시 ' + e.text; }).join('\n')) + '"' : '') + '>' + inner + '</button>';
       }
       var wn = weekOfYear(S.monthCursor + '-' + pad(Math.max(1, r * 7 - first + 1)));   // 그 줄의 올해 주차
       html += '<div class="wkc' + (hasToday ? ' cur' : '') + '">' + wn + '<small>주</small></div>' + cells;
     }
-    $('#mgrid').innerHTML = html;
+    var grid = $('#mgrid');
+    grid.innerHTML = html;
+    grid.dataset.lines = String(cellLines());
+    fitMonth();
+  }
+
+  /* 일정 한 개가 칸에서 차지할 줄 수: 휴대폰은 칸이 좁아 '보통'까지는 한 줄(더 많은 일정이 보임) */
+  function cellLines() {
+    var wide = !!(mqWide && mqWide.matches);
+    return (wide ? [1, 2, 2, 3, 3] : [1, 1, 2, 2, 3])[S.cellSize - 1];
+  }
+
+  /* 칸에 다 들어가지 않는 일정은 숨기고 '+N'으로 (칸 크기·글꼴·화면 너비에 맞춰 계산) */
+  function fitMonth() {
+    var grid = $('#mgrid');
+    if (!grid || !grid.offsetWidth) return;   // 달력이 보이지 않을 때는 다음에 보일 때 계산
+    var wide = !!(mqWide && mqWide.matches);
+    $$('.cell', grid).forEach(function (cell) {
+      var box = $('.scs', cell), more = $('.sc-more', cell);
+      if (!box || !more) return;
+      var items = box.children, i, n = 0;
+      for (i = 0; i < items.length; i++) items[i].hidden = false;
+      more.hidden = true;
+      if (box.scrollHeight <= box.clientHeight + 1) return;
+      more.hidden = false;   // '+N' 줄 자리를 비워 두고 다시 잼
+      var lim = box.clientHeight;
+      for (i = 0; i < items.length; i++) if (items[i].offsetTop + items[i].offsetHeight > lim + 1) break;
+      for (var j = i; j < items.length; j++) { items[j].hidden = true; n++; }
+      more.textContent = '+' + n + (wide ? '개 더' : '');
+      more.hidden = !n;
+    });
+  }
+
+  function applyCellSize(n) {
+    n = Math.min(5, Math.max(1, n || 2));
+    S.cellSize = n;
+    writePref('cellSize', String(n));
+    $('#mgrid').dataset.size = String(n);
+    $('#mgrid').dataset.lines = String(cellLines());
+    $('#cellSizeLabel').textContent = CELL_SIZES[n - 1];
+    $('#cellSmaller').disabled = n <= 1;
+    $('#cellBigger').disabled = n >= 5;
+    if (S.view === 'month') fitMonth();
   }
 
   function renderPendingView() {
@@ -597,11 +856,68 @@
         html += '<div class="pend-group"><h3>' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + WD[d.getDay()] + ')</h3>';
       }
       html += '<div class="pend-item pri-' + esc(t.pri) + '" data-id="' + esc(t.id) + '"><span class="pri">' + esc(t.pri) + '</span>' +
-        '<span class="ptxt">' + esc(t.text) + (t.status === 'prog' ? ' <small style="color:var(--gold)">● 진행 중</small>' : '') + '</span>' +
+        '<span class="ptxt' + (t.bold ? ' em' : '') + '">' + esc(t.text) + (t.status === 'prog' ? ' <small style="color:var(--gold)">● 진행 중</small>' : '') + '</span>' +
         '<span class="acts"><button class="btn small primary" data-pact="today">→ 오늘로</button><button class="btn small" data-pact="done">✓</button><button class="btn small" data-pact="del">✕</button></span></div>';
     });
     html += '</div>';
     $('#pendList').innerHTML = html;
+  }
+
+  /* ───────── 메모 모아보기 ───────── */
+  var memoCache = {};   // 날짜 → { notes, html, lines, text } (검색할 때마다 다시 읽지 않도록)
+  function memoParsed(m) {
+    var c = memoCache[m.date];
+    if (!c || c.notes !== m.notes || c.html !== m.notesHtml) {
+      var lines = memoLines(m);
+      c = memoCache[m.date] = { notes: m.notes, html: m.notesHtml, lines: lines, text: rtText(lines) };
+    }
+    return c;
+  }
+  function renderMemos() {
+    var box = $('#memoList'), q = S.memoQ.trim(), ql = q.toLowerCase(), qi = $('#memoQ');
+    if (qi.value !== S.memoQ && document.activeElement !== qi) qi.value = S.memoQ;
+    if (S.memos === null) { box.innerHTML = '<div class="memo-empty">불러오는 중…</div>'; $('#memoCount').textContent = ''; return; }
+    var items = [];
+    S.memos.forEach(function (m) {
+      var pm = memoParsed(m), lines = pm.lines, text = pm.text, ranges = [];
+      if (!text.trim()) return;
+      if (q) {
+        var low = text.toLowerCase(), i = low.indexOf(ql);
+        while (i >= 0) { ranges.push([i, i + ql.length]); i = low.indexOf(ql, i + ql.length); }
+        if (!ranges.length) return;
+      }
+      items.push({ date: m.date, lines: lines, ranges: ranges });
+    });
+    $('#memoCount').textContent = q ? '‘' + q + '’ 검색 결과 ' + items.length + '일' : '메모가 있는 날 ' + items.length + '일';
+    if (!items.length) {
+      box.innerHTML = '<div class="memo-empty">' + (q ? '‘' + esc(q) + '’ 검색 결과가 없습니다.'
+        : '아직 적은 메모가 없습니다.<br>하루 페이지의 ‘메모’ 칸에 적으면 여기에 날짜별로 모입니다.') + '</div>';
+      return;
+    }
+    var html = '', cur = '', t0 = today(), shown = items.slice(0, S.memoLimit);
+    shown.forEach(function (it) {
+      var mk = it.date.slice(0, 7), d = parse(it.date), w = d.getDay();
+      if (mk !== cur) {
+        if (cur) html += '</div>';
+        cur = mk;
+        html += '<div class="memo-month"><h3>' + d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월</h3>';
+      }
+      html += '<article class="memo-item' + (q ? '' : ' clamp') + '" data-date="' + it.date + '">' +
+        '<button type="button" class="memo-date" data-open="' + it.date + '"><span class="md-d">' + d.getDate() + '일</span>' +
+        '<span class="md-w' + (w === 0 ? ' sun' : w === 6 ? ' sat' : '') + '">' + WD[w] + '요일</span>' +
+        (it.date === t0 ? '<span class="md-today">오늘</span>' : '') + '<span class="md-go">그날 페이지 ›</span></button>' +
+        '<div class="memo-body">' + rtHtml(it.lines, it.ranges) + '</div>' +
+        '<button type="button" class="memo-more" hidden>더 보기 ▾</button></article>';
+    });
+    if (cur) html += '</div>';
+    if (items.length > shown.length) html += '<button type="button" class="btn memo-next" id="memoNext">이전 메모 더 보기 (' + (items.length - shown.length) + '일 남음)</button>';
+    box.innerHTML = html;
+    // 길게 적은 메모는 접어 두고 '더 보기'로 펼침 (검색 중에는 모두 펼쳐서 보여 줌)
+    $$('.memo-item.clamp', box).forEach(function (a) {
+      var body = $('.memo-body', a);
+      if (body.scrollHeight > body.clientHeight + 4) $('.memo-more', a).hidden = false;
+      else a.classList.remove('clamp');
+    });
   }
 
   function buildMonthTabs() {
@@ -714,13 +1030,15 @@
   }
 
   /* ───────── 화면 전환 ───────── */
-  var VIEWS = { day: '#dayView', month: '#monthView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
+  var VIEWS = { day: '#dayView', month: '#monthView', memos: '#memosView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
   function showView(v) {
     if (v !== 'values') flushValues();
+    if (v !== 'day') { flushNotes(); flushSched(); closeSchedTools(); }
     S.view = v;
     Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== v; });
     if (v === 'month') { subscribeSched(S.monthCursor); renderMonth(); }
     else if (S.store) subscribeSched(monthKey(S.date));
+    if (v === 'memos') { subscribeMemos(); renderMemos(); } else unsubscribeMemos();
     if (v === 'pending') renderPendingView();
     if (v === 'values') fillValues();
     if (v === 'font') renderFontView();
@@ -808,11 +1126,13 @@
     if (toDate === t.date) { toast('같은 날짜로는 넘길 수 없습니다.'); return false; }
     var ops = t.status === 'fwd' ? unforwardOps(t) : [];
     var now = Date.now(), id = S.store.newId();
-    ops.push({ type: 'set', task: {
+    var copy = {
       id: id, date: toDate, pri: t.pri, ord: now, text: t.text,
       status: t.status === 'prog' ? 'prog' : 'open',
       fwdFrom: t.date, fwdCount: (t.fwdCount || 0) + 1, created: now, updated: now
-    } });
+    };
+    if (t.bold) copy.bold = true;   // 진하게 표시도 그대로 넘김
+    ops.push({ type: 'set', task: copy });
     ops.push({ type: 'update', id: t.id, patch: { status: 'fwd', fwdTo: toDate, fwdId: id, who: null, updated: now } });
     S.store.commit(ops);
     toast(md(toDate) + '로 넘겼습니다.');
@@ -826,11 +1146,13 @@
     var now = Date.now(), ops = [];
     list.forEach(function (t, i) {
       var id = S.store.newId();
-      ops.push({ type: 'set', task: {
+      var copy = {
         id: id, date: t0, pri: t.pri, ord: now + i, text: t.text,
         status: t.status === 'prog' ? 'prog' : 'open',
         fwdFrom: t.date, fwdCount: (t.fwdCount || 0) + 1, created: now, updated: now
-      } });
+      };
+      if (t.bold) copy.bold = true;
+      ops.push({ type: 'set', task: copy });
       ops.push({ type: 'update', id: t.id, patch: { status: 'fwd', fwdTo: t0, fwdId: id, updated: now } });
     });
     S.store.commit(ops);
@@ -880,6 +1202,9 @@
     $('#sheetLabel').textContent = labels[t.id] || t.pri;
     $('#sheetLabel').style.color = 'var(--' + t.pri + ')';
     $('#sheetTitle').textContent = md(t.date) + ' 할 일';
+    var tb = $('#btnTaskBold');
+    tb.classList.toggle('on', !!t.bold); tb.setAttribute('aria-pressed', t.bold ? 'true' : 'false');
+    $('#editText').classList.toggle('em', !!t.bold);
     $$('#editPri button').forEach(function (b) { b.classList.toggle('on', b.dataset.pri === t.pri); });
     $$('#statusGrid button').forEach(function (b) { b.classList.toggle('on', b.dataset.st === (t.status || 'open')); });
     $('#statusGrid button[data-st="fwd"]').disabled = t.status === 'fwd';
@@ -913,22 +1238,50 @@
   }
 
   /* ───────── 일정·메모·가치 자동 저장 ───────── */
-  var notesTimer = null, notesPending = null;
+  var notesTimer = null, notesPending = null, notesRange = null;
   function onNotesInput() {
-    notesPending = { date: S.date, value: $('#notes').value };
+    var ed = $('#notes');
+    notesPending = { date: ed.dataset.date || S.date };
+    ed.classList.toggle('is-empty', notesLooksEmpty(ed));
     clearTimeout(notesTimer);
     notesTimer = setTimeout(flushNotes, 700);
   }
   function flushNotes() {
     clearTimeout(notesTimer);
-    if (notesPending && S.store) S.store.setDay(notesPending.date, { notes: notesPending.value });
+    var ed = $('#notes');
+    if (notesPending && S.store && (ed.dataset.date || S.date) === notesPending.date) {
+      var lines = rtFromDom(ed);   // 저장하는 순간의 메모 칸 내용
+      S.store.setDay(notesPending.date, { notes: rtText(lines), notesHtml: rtHasBold(lines) ? rtHtml(lines) : '' });
+    }
     notesPending = null;
+  }
+  /* 진하게 단추: 글자를 고른 뒤 누르면 진하게(다시 누르면 보통), 고르지 않고 누르면 이어서 쓰는 글자부터 */
+  function notesBoldState() {
+    var ed = $('#notes'), sel = window.getSelection(), on = false, b = $('#btnNotesBold');
+    if (sel && sel.rangeCount && ed.contains(sel.anchorNode)) {
+      try { on = document.queryCommandState('bold'); } catch (e) { on = false; }
+    }
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function toggleNotesBold() {
+    var ed = $('#notes'), sel = window.getSelection();
+    if (document.activeElement !== ed) {
+      ed.focus();
+      var r = notesRange && ed.contains(notesRange.startContainer) ? notesRange : null;
+      if (!r) { r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); }
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+    try { document.execCommand('bold', false, null); } catch (e) { /* 지원하지 않는 브라우저 */ }
+    onNotesInput();
+    notesBoldState();
   }
 
   var schedPending = new Map(), schedTimer = null;
   function onSchedInput(e) {
     var h = e.target.dataset.h; if (!h) return;
     schedPending.set(S.date + '|' + h, e.target.value);
+    var btn = $('.sty', e.target.parentNode);
+    if (btn) btn.hidden = !e.target.value.trim() && schedToolsH !== h;
     clearTimeout(schedTimer);
     schedTimer = setTimeout(flushSched, 700);
   }
@@ -941,7 +1294,16 @@
       (byDate[p[0]] = byDate[p[0]] || {})[p[1]] = v;
     });
     schedPending.clear();
-    Object.keys(byDate).forEach(function (d) { S.store.setDay(d, { sched: byDate[d] }); });
+    Object.keys(byDate).forEach(function (d) {
+      var patch = { sched: byDate[d] }, style = d === S.date && S.day && S.day.schedStyle, clear = {};
+      // 글자를 모두 지운 시간은 색·진하게도 지움 (나중에 새로 적는 일정에 남지 않도록)
+      if (style) Object.keys(byDate[d]).forEach(function (h) {
+        var st = style[h];
+        if (!String(byDate[d][h]).trim() && st && (st.c || st.b)) clear[h] = { c: '', b: false };
+      });
+      if (Object.keys(clear).length) patch.schedStyle = clear;
+      S.store.setDay(d, patch);
+    });
   }
 
   var valuesTimer = null, valuesPending = {};
@@ -1105,8 +1467,66 @@
 
     $('#schedList').addEventListener('input', onSchedInput);
     $('#schedList').addEventListener('focusout', function () { flushSched(); });
-    $('#notes').addEventListener('input', onNotesInput);
-    $('#notes').addEventListener('blur', flushNotes);
+    // 일정 글자 색 · 진하게
+    $('#schedList').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.classList.contains('sty')) { openSchedTools(b.dataset.sty); return; }
+      if (!schedToolsH) return;
+      if (b.classList.contains('sw')) setSchedStyle(schedToolsH, { c: b.dataset.c || '' });
+      else if (b.id === 'schedBold') setSchedStyle(schedToolsH, { b: !styleOf(S.day && S.day.schedStyle, schedToolsH).b });
+      else if (b.classList.contains('st-close')) closeSchedTools();
+    });
+
+    // 메모 칸 (진하게)
+    var ed = $('#notes');
+    ed.addEventListener('input', onNotesInput);
+    ed.addEventListener('blur', flushNotes);
+    ed.addEventListener('paste', function (e) {   // 붙여 넣을 때는 글자만 (다른 곳의 색·크기는 빼고)
+      var cd = e.clipboardData || window.clipboardData; if (!cd) return;
+      e.preventDefault();
+      var text = String(cd.getData('text/plain') || cd.getData('Text') || '').replace(/\r\n?/g, '\n');
+      if (text) document.execCommand('insertText', false, text);
+    });
+    ed.addEventListener('drop', function (e) { e.preventDefault(); });   // 끌어다 놓기로 서식이 섞이지 않게
+    ed.addEventListener('beforeinput', function (e) {   // 진하게 말고 다른 꾸미기(기울임·밑줄 등)는 막음
+      var t = e.inputType || '';
+      if (/^format/.test(t) && t !== 'formatBold') e.preventDefault();
+    });
+    ed.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        var k = String(e.key || '').toLowerCase();
+        if (k === 'b') { e.preventDefault(); toggleNotesBold(); }
+        else if (k === 'i' || k === 'u') e.preventDefault();
+      }
+    });
+    document.addEventListener('selectionchange', function () {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount && ed.contains(sel.anchorNode)) notesRange = sel.getRangeAt(0).cloneRange();
+      if (S.view === 'day') notesBoldState();
+    });
+    var nb = $('#btnNotesBold');
+    nb.addEventListener('mousedown', function (e) { e.preventDefault(); });   // 고른 글자가 풀리지 않게
+    nb.addEventListener('click', toggleNotesBold);
+
+    // 메모 모아보기
+    var memoTimer = null;
+    $('#memoQ').addEventListener('input', function (e) {
+      S.memoQ = e.target.value; S.memoLimit = 60;
+      clearTimeout(memoTimer);
+      memoTimer = setTimeout(renderMemos, 150);
+    });
+    $('#memoList').addEventListener('click', function (e) {
+      var o = e.target.closest('[data-open]');
+      if (o) { setDate(o.dataset.open); setTab('notes'); return; }
+      var mm = e.target.closest('.memo-more');
+      if (mm) {
+        var a = mm.closest('.memo-item'), open = a.classList.toggle('clamp');
+        mm.textContent = open ? '더 보기 ▾' : '접기 ▴';
+        return;
+      }
+      if (e.target.closest('#memoNext')) { S.memoLimit += 60; renderMemos(); }
+    });
+
     $('#valuesView').addEventListener('input', onValuesInput);
     $('#fontList').addEventListener('click', function (e) {
       var b = e.target.closest('.font-card'); if (!b) return;
@@ -1138,11 +1558,22 @@
       setDate(b.dataset.date);
       setTab('sched'); // 월간 달력은 일정을 보여 주므로, 휴대폰에서는 그날의 일정 화면을 엽니다
     });
-    // PC 크기 ↔ 휴대폰 크기가 바뀌면 월간 달력 칸에 보일 줄 수를 다시 계산
+    // PC 크기 ↔ 휴대폰 크기가 바뀌면 월간 달력을 다시 그림
     if (mqWide) {
       var onWide = function () { if (S.view === 'month') renderMonth(); };
       if (mqWide.addEventListener) mqWide.addEventListener('change', onWide); else if (mqWide.addListener) mqWide.addListener(onWide);
     }
+    // 창 크기·글꼴이 바뀌면 칸에 들어가는 일정 수를 다시 계산
+    var fitTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(fitTimer);
+      fitTimer = setTimeout(function () { if (S.view === 'month') fitMonth(); }, 120);
+    });
+    if (document.fonts && document.fonts.addEventListener) {
+      document.fonts.addEventListener('loadingdone', function () { if (S.view === 'month') fitMonth(); });
+    }
+    $('#cellSmaller').addEventListener('click', function () { applyCellSize(S.cellSize - 1); });
+    $('#cellBigger').addEventListener('click', function () { applyCellSize(S.cellSize + 1); });
     $('#monthTabs').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-m]'); if (!b) return;
       S.monthCursor = S.date.slice(0, 4) + '-' + pad(+b.dataset.m);
@@ -1169,6 +1600,14 @@
     });
 
     // 편집 시트
+    $('#btnTaskBold').addEventListener('click', function () {
+      var t = findTask(S.editId); if (!t) return;
+      saveEditText();
+      t.bold = !t.bold;   // 화면에 바로 반영
+      S.store.updateTask(t.id, { bold: t.bold, updated: Date.now() });
+      renderSheet(); renderTasks();
+      if (S.view === 'pending') renderPendingView();
+    });
     $('#editText').addEventListener('blur', saveEditText);
     $('#editText').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); saveEditText(); $('#editText').blur(); }
@@ -1238,9 +1677,10 @@
       if (e.key === 'Escape') {
         if (!$('#sheet').hidden) { closeSheet(); return; }
         if (!$('#drawer').hidden) { closeDrawer(); return; }
+        if (schedToolsH) { closeSchedTools(); return; }
       }
-      var tag = (document.activeElement && document.activeElement.tagName) || '';
-      if (/INPUT|TEXTAREA|SELECT/.test(tag) || e.ctrlKey || e.metaKey || e.altKey) return;
+      var ae = document.activeElement, tag = (ae && ae.tagName) || '';
+      if (/INPUT|TEXTAREA|SELECT/.test(tag) || (ae && ae.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
       if (!$('#sheet').hidden || !$('#drawer').hidden || $('#app').hidden || S.view !== 'day') return;
       if (e.key === 'ArrowLeft') setDate(addDays(S.date, -1));
       else if (e.key === 'ArrowRight') setDate(addDays(S.date, 1));
@@ -1251,7 +1691,7 @@
     // 휴대폰: 좌우로 밀어 날짜 이동
     var sx = 0, sy = 0, st = 0, tracking = false;
     $('#dayView').addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1 || e.target.closest('input,textarea,button,.sched-row')) { tracking = false; return; }
+      if (e.touches.length !== 1 || e.target.closest('input,textarea,button,.sched-row,.sched-tools,[contenteditable]')) { tracking = false; return; }
       tracking = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
     }, { passive: true });
     $('#dayView').addEventListener('touchend', function (e) {
