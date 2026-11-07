@@ -60,29 +60,86 @@
     for (var i = 0; i < SCHED_COLORS.length; i++) if (id && SCHED_COLORS[i].id === id) return SCHED_COLORS[i].hex;
     return '';
   }
-  /* 그 시간 일정의 글자 꾸미기 { c: 색 이름(빈칸 = 기본), b: 진하게 } */
+  /* 종일 일정 테두리 색 (월간 달력의 테두리 띠). 기본 = 글자 색을 골랐으면 그 색, 아니면 플래너 색 */
+  var BORDER_COLORS = [
+    { id: '', name: '기본', hex: '' },
+    { id: 'red', name: '빨강', hex: '#C62828' },
+    { id: 'orange', name: '주황', hex: '#E65100' },
+    { id: 'yellow', name: '노랑', hex: '#C99400' },
+    { id: 'green', name: '초록', hex: '#2E7D32' },
+    { id: 'teal', name: '청록', hex: '#00897B' },
+    { id: 'sky', name: '하늘', hex: '#0288D1' },
+    { id: 'blue', name: '파랑', hex: '#1565C0' },
+    { id: 'navy', name: '남색', hex: '#283593' },
+    { id: 'purple', name: '보라', hex: '#6A1B9A' },
+    { id: 'pink', name: '분홍', hex: '#D81B60' },
+    { id: 'brown', name: '갈색', hex: '#795548' },
+    { id: 'gray', name: '회색', hex: '#757575' },
+    { id: 'black', name: '검정', hex: '#26241F' }
+  ];
+  function borderHex(id) {
+    for (var i = 0; i < BORDER_COLORS.length; i++) if (id && BORDER_COLORS[i].id === id) return BORDER_COLORS[i].hex;
+    return '';
+  }
+  /* 일정 글자 꾸미기 { c: 글자 색(빈칸 = 기본), b: 진하게, bc: 테두리 색(종일 일정, 빈칸 = 기본) } */
   function styleOf(map, h) {
     var s = map && map[h];
-    return { c: s && colorHex(s.c) ? s.c : '', b: !!(s && s.b === true) };
+    return { c: s && colorHex(s.c) ? s.c : '', b: !!(s && s.b === true), bc: s && borderHex(s.bc) ? s.bc : '' };
   }
   /* 월간 달력 칸 크기 (PC와 휴대폰은 화면이 달라 기기마다 따로 기억) */
   var CELL_SIZES = ['작게', '보통', '크게', '더 크게', '아주 크게'];
-  /* 월간 달력 날짜 바탕색 (조르테처럼 날짜 칸을 색칠). 일정 글씨가 잘 읽히도록 연한 색만 씀 */
-  var DAY_BGS = [
-    { id: 'red', name: '빨강', hex: '#FFCBC3' },
-    { id: 'orange', name: '주황', hex: '#FFD7B0' },
-    { id: 'yellow', name: '노랑', hex: '#FBEC9E' },
-    { id: 'green', name: '초록', hex: '#C8E8C3' },
-    { id: 'sky', name: '하늘', hex: '#B7E8F4' },
-    { id: 'blue', name: '파랑', hex: '#C6DDFF' },
-    { id: 'purple', name: '보라', hex: '#DED1FA' },
-    { id: 'pink', name: '분홍', hex: '#FFCADE' },
-    { id: 'gray', name: '회색', hex: '#D9D7D3' }
+  /* 월간 달력 날짜 바탕색 (조르테처럼 날짜 칸을 색칠). 12가지 색 × 연하게·보통·진하게 = 36가지.
+     '보통'은 v1.4~v1.5의 9가지 색과 같은 값(예전에 칠한 날짜는 그대로). 진하게도 글씨가 잘 읽히는 밝기까지만 */
+  var BG_HUES = [
+    { id: 'red', name: '빨강', l: '#FFE5E1', m: '#FFCBC3', d: '#F4A497' },
+    { id: 'orange', name: '주황', l: '#FFEBD8', m: '#FFD7B0', d: '#F7BC86' },
+    { id: 'yellow', name: '노랑', l: '#FDF6CE', m: '#FBEC9E', d: '#F3D96E' },
+    { id: 'lime', name: '연두', l: '#EEF6D9', m: '#DCEDB4', d: '#C4DE8C' },
+    { id: 'green', name: '초록', l: '#E4F3E1', m: '#C8E8C3', d: '#A3D49B' },
+    { id: 'teal', name: '청록', l: '#DEF3EE', m: '#BCE7DD', d: '#8FD2C2' },
+    { id: 'sky', name: '하늘', l: '#DBF4FA', m: '#B7E8F4', d: '#8ED3E8' },
+    { id: 'blue', name: '파랑', l: '#E2EEFF', m: '#C6DDFF', d: '#A6C6F6' },
+    { id: 'purple', name: '보라', l: '#EEE8FC', m: '#DED1FA', d: '#C6B3F1' },
+    { id: 'pink', name: '분홍', l: '#FFE4EE', m: '#FFCADE', d: '#F5A9C7' },
+    { id: 'brown', name: '갈색', l: '#F2E7DC', m: '#E8D5C0', d: '#D9BB99' },
+    { id: 'gray', name: '회색', l: '#EAE9E6', m: '#D9D7D3', d: '#BFBBB4' }
   ];
+  var BG_TONES = [{ k: 'l', suffix: '-l', name: '연한 ', label: '연하게' }, { k: 'm', suffix: '', name: '', label: '보통' }, { k: 'd', suffix: '-d', name: '진한 ', label: '진하게' }];
+  var DAY_BGS = [];
+  BG_TONES.forEach(function (t, ti) {
+    BG_HUES.forEach(function (h) { DAY_BGS.push({ id: h.id + t.suffix, name: t.name + h.name, hex: h[t.k], tone: ti, deep: ti === 2 }); });
+  });
   function dayBg(id) {
     for (var i = 0; i < DAY_BGS.length; i++) if (id && DAY_BGS[i].id === id) return DAY_BGS[i];
     return null;
   }
+  /* 월간 달력 요일 칸 색: 기본 · 플래너 색 · 진한 색 12가지(흰 글씨) · 연한 색 12가지 · 직접 고르기 */
+  var DOW_COLORS = [
+    { id: 'dk-red', name: '진한 빨강', hex: '#B3261E' },
+    { id: 'dk-orange', name: '진한 주황', hex: '#B45309' },
+    { id: 'dk-mustard', name: '겨자색', hex: '#8A6A00' },
+    { id: 'dk-green', name: '진한 초록', hex: '#2E7D32' },
+    { id: 'dk-teal', name: '진한 청록', hex: '#00695C' },
+    { id: 'dk-sky', name: '진한 하늘', hex: '#0277BD' },
+    { id: 'dk-blue', name: '진한 파랑', hex: '#2952A3' },
+    { id: 'dk-navy', name: '남색', hex: '#26386E' },
+    { id: 'dk-purple', name: '진한 보라', hex: '#6A3FA0' },
+    { id: 'dk-pink', name: '진한 분홍', hex: '#AD1457' },
+    { id: 'dk-brown', name: '진한 갈색', hex: '#6D4C41' },
+    { id: 'dk-gray', name: '진한 회색', hex: '#5F5B54' }
+  ];
+  BG_HUES.forEach(function (h) { DOW_COLORS.push({ id: 'lt-' + h.id, name: '연한 ' + h.name, hex: h.m }); });
+  function dowById(id) {
+    for (var i = 0; i < DOW_COLORS.length; i++) if (id && DOW_COLORS[i].id === id) return DOW_COLORS[i];
+    return null;
+  }
+  /* 여러 날 이어지는 종일 일정의 기간은 최대 366일 */
+  var SPAN_MAX = 366;
+  function spanDays(s, e) {
+    var a = s.split('-'), b = e.split('-');
+    return Math.round((Date.UTC(+b[0], +b[1] - 1, +b[2]) - Date.UTC(+a[0], +a[1] - 1, +a[2])) / 86400000) + 1;
+  }
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   var PRI_ORDER = { A: 0, B: 1, C: 2 };
   var ACTIVE = ['open', 'prog'];
@@ -192,6 +249,18 @@
     return rgbOf(h).reduce(function (sum, v, i) { v /= 255; return sum + w[i] * (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); }, 0);
   }
   function contrastOf(a, b) { var x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  /* 색칠한 칸 위에서도 또렷하도록, 바탕과의 대비가 min 이상이 될 때까지 조금씩 어둡게 */
+  function readableOn(hex, bg, min) {
+    var c = hex.toUpperCase(), i = 0;
+    while (contrastOf(c, bg) < (min || 4.5) && i++ < 40) c = mixHex(c, '#000000', 0.06);
+    return c;
+  }
+  /* 지금 플래너 색(강조색) — 직접 고른 색이나 테마 색이 적용된 값 */
+  function accentHex() {
+    var v = '';
+    try { v = getComputedStyle(document.documentElement).getPropertyValue('--green').trim(); } catch (e) { v = ''; }
+    return isHex(v) ? v.toUpperCase() : '#1F4D3C';
+  }
   /* 직접 고른 색이 너무 밝으면 글씨가 안 보이므로, 종이색과 대비 4.5:1 이상이 될 때까지 조금씩 어둡게 */
   function readableAccent(h) {
     var c = h.toUpperCase(), i = 0;
@@ -302,15 +371,16 @@
     view: 'day', tab: 'tasks',
     tasks: [], day: {}, dayLoaded: false,
     pending: [], profile: {},
-    sched: {}, schedStyle: {}, dayBg: {}, schedKey: '', monthCursor: monthKey(today()),
+    sched: {}, schedStyle: {}, dayBg: {}, spans: [], schedKey: '', monthCursor: monthKey(today()),
     cellSize: Math.min(5, Math.max(1, parseInt(readPref('cellSize', '2'), 10) || 2)),
     painting: false, paintColor: dayBg(readPref('paintColor', 'red')) ? readPref('paintColor', 'red') : 'red',
+    dowOpen: false, dowColor: readPref('dowColor', ''),
     memos: null, memoQ: '', memoLimit: 60,
     addPri: readPref('addPri', 'A'),
     font: 'noto-sans', fontAll: false,
     theme: 'green', themeColor: '',
     editId: null,
-    unsub: { day: null, pending: null, sched: null, profile: null, memos: null }
+    unsub: { day: null, pending: null, sched: null, spans: null, profile: null, memos: null }
   };
   var FBA = null; // { FB, app, auth, db }
 
@@ -320,13 +390,15 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.5';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.6';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
     bindEvents();
     buildSchedRows();
     buildSchedTools();
+    buildRangeTools();
     buildPaintBar();
+    buildDowBar();
     buildMonthTabs();
     setAddPri(S.addPri);
     applyCellSize(S.cellSize);
@@ -464,6 +536,7 @@
       }
       var pt = S.profile.theme, pc = String(S.profile.themeColor || '').toUpperCase();
       if (typeof pt === 'string' && (pt !== S.theme || (pt === 'custom' && pc !== S.themeColor))) applyTheme(pt, pc);
+      if (typeof S.profile.dowColor === 'string' && S.profile.dowColor !== S.dowColor) applyDow(S.profile.dowColor);
       renderMission();
       if (S.view === 'values') fillValues();
     });
@@ -477,18 +550,20 @@
     subscribeSched(S.view === 'month' ? S.monthCursor : monthKey(S.date));
   }
 
-  /* store.js가 이 app.js와 같은 v1.5 파일인지 (v는 v1.4부터 있음, 15 = v1.5) */
+  /* store.js가 이 app.js와 같은 v1.6 파일인지 (v는 v1.4부터 있음, 16 = v1.6) */
   function storeIsCurrent() {
     var P = window.PlannerStores;
-    return !!(P && P.v >= 15);
+    return !!(P && P.v >= 16);
   }
+  /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
+  function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
 
   function detachStore() {
-    flushNotes(); flushSched(); flushValues(); closePaint();
+    flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); closePaint(); closeDow();
     Object.keys(S.unsub).forEach(function (k) { if (S.unsub[k]) S.unsub[k](); S.unsub[k] = null; });
     if (S.store && S.store.destroy) S.store.destroy();
     S.store = null;
-    S.tasks = []; S.day = {}; S.pending = []; S.sched = {}; S.schedStyle = {}; S.dayBg = {}; S.schedKey = ''; S.profile = {};
+    S.tasks = []; S.day = {}; S.pending = []; S.sched = {}; S.schedStyle = {}; S.dayBg = {}; S.spans = []; S.schedKey = ''; S.profile = {};
     closeSheet(true);
   }
 
@@ -496,7 +571,7 @@
     if (!S.store) return;
     if (S.unsub.day) S.unsub.day();
     var date = S.date;
-    closeSchedTools();
+    closeSchedTools(); closeRange();
     S.tasks = []; S.day = {}; S.dayLoaded = false;
     renderTasks(); renderSched(); renderNotes(true);
     S.unsub.day = S.store.watchDay(date, function (r) {
@@ -516,7 +591,8 @@
     }
     if (S.schedKey === mk && S.unsub.sched) return;
     if (S.unsub.sched) S.unsub.sched();
-    S.schedKey = mk; S.sched = {}; S.schedStyle = {}; S.dayBg = {};
+    if (S.unsub.spans) { S.unsub.spans(); S.unsub.spans = null; }
+    S.schedKey = mk; S.sched = {}; S.schedStyle = {}; S.dayBg = {}; S.spans = [];
     var p = mk.split('-'), y = +p[0], m = +p[1];
     var from = mk + '-01', to = mk + '-' + pad(lastDay(y, m));
     S.unsub.sched = S.store.watchSchedRange(from, to, function (map, style, bg) {
@@ -527,6 +603,44 @@
       renderMiniCal();
       if (S.view === 'month') renderMonth();
     });
+    // 여러 날 이어지는 종일 일정: 이 달과 겹치는 것 (하루 페이지·월간 달력·작은 달력에 함께 씀)
+    if (spansOk()) {
+      S.unsub.spans = S.store.watchSpans(from, to, function (list) {
+        if (S.schedKey !== mk) return;
+        S.spans = cleanSpans(list);
+        renderMiniCal();
+        if (S.view === 'month') renderMonth();
+        if (S.view === 'day') renderSched();
+      });
+    }
+  }
+  /* 저장소에서 받은 여러 날 종일 일정 → 화면에서 쓰기 좋게 (날짜가 이상한 것은 건너뜀) */
+  function cleanSpans(list) {
+    var out = [];
+    (list || []).forEach(function (v) {
+      if (!v || !/^[A-Za-z0-9_-]{1,60}$/.test(String(v.id || '')) || !DATE_RE.test(String(v.s || '')) || !String(v.t == null ? '' : v.t).trim()) return;
+      var e = DATE_RE.test(String(v.e || '')) && v.e >= v.s ? v.e : v.s;
+      out.push({ id: String(v.id), s: v.s, e: e, t: String(v.t), c: colorHex(v.c) ? v.c : '', b: v.b === true, bc: borderHex(v.bc) ? v.bc : '', created: Number(v.created) || 0 });
+    });
+    return out.sort(spanOrder);
+  }
+  /* 먼저 시작하는 일정 → 더 긴 일정 → 먼저 만든 일정 순서 */
+  function spanOrder(a, b) {
+    return (a.s < b.s ? -1 : a.s > b.s ? 1 : 0) || (a.e > b.e ? -1 : a.e < b.e ? 1 : 0) || ((a.created || 0) - (b.created || 0)) || (a.id < b.id ? -1 : 1);
+  }
+  /* 여러 날 종일 일정 고치기 (지워진 일정은 되살리지 않음) */
+  function spanEdit(id, patch) {
+    if (!S.store) return;
+    if (typeof S.store.updateSpan === 'function') S.store.updateSpan(id, patch); else S.store.setSpan(id, patch);
+  }
+  function spanById(id) {
+    for (var i = 0; i < S.spans.length; i++) if (S.spans[i].id === id) return S.spans[i];
+    return null;
+  }
+  /* 그 날짜에 걸쳐 있는 여러 날 종일 일정 (지금 읽어 둔 달 안에서만) */
+  function spansOn(ds) {
+    if (S.schedKey !== monthKey(ds)) return [];
+    return S.spans.filter(function (v) { return v.s <= ds && ds <= v.e; });
   }
 
   /* 메모 모아보기: 그 화면을 보는 동안만 읽음 */
@@ -659,39 +773,59 @@
     $('#cntTasks').textContent = sorted.length ? String(open) : '';
   }
 
-  /* 일정 줄: 줄마다 작은 form이라서 Enter(휴대폰은 '완료')를 누르면 바로 저장됨 (한글 조합 중 Enter도 브라우저가 알아서 처리) */
+  /* 일정 줄: 줄마다 작은 form이라서 Enter(휴대폰은 '완료')를 누르면 바로 저장됨 (한글 조합 중 Enter도 브라우저가 알아서 처리)
+     종일 칸에는 '기간' 단추(며칠 동안 이어지는 일정)와 '가' 단추(글자 색·테두리 색·진하게)가 있음 */
   function schedRowHtml(h, i) {
     var ad = isAllDay(h), name = ad ? '종일 일정' + (i ? ' ' + (i + 1) : '') : (+h) + '시 일정';
     var ph = ad ? (i ? '종일 일정 하나 더' : '예: 휴가, 출장, 생일') : '';
     return '<form class="sched-row' + (ad ? ' ad' : '') + '" data-h="' + h + '" autocomplete="off"' + (ad && i ? ' hidden' : '') + '>' +
       '<div class="hh">' + (ad ? '종일' : (+h) + '<small>시</small>') + '</div>' +
       '<input type="text" data-h="' + h + '" aria-label="' + name + '" maxlength="200" enterkeyhint="done" autocomplete="off"' + (ph ? ' placeholder="' + ph + '"' : '') + '>' +
-      '<button type="button" class="sty" data-sty="' + h + '" aria-label="' + name + ' 글자 색 · 진하게" title="글자 색 · 진하게" hidden><span>가</span></button></form>';
+      (ad ? '<button type="button" class="per" data-per="' + h + '" aria-label="' + name + ' 기간 정하기 (며칠 동안 이어지는 일정)" title="기간 — 며칠 동안 이어지는 일정" hidden>기간</button>' : '') +
+      '<button type="button" class="sty" data-sty="' + h + '" aria-label="' + name + (ad ? ' 글자 색 · 테두리 색 · 진하게' : ' 글자 색 · 진하게') + '" title="' + (ad ? '글자 색 · 테두리 색 · 진하게' : '글자 색 · 진하게') + '" hidden><span>가</span></button></form>';
   }
   function buildSchedRows() {
-    $('#schedList').innerHTML = '<div class="ad-block" role="group" aria-label="종일 일정">' + ALLDAY.map(schedRowHtml).join('') + '</div>' +
+    $('#schedList').innerHTML = '<div class="ad-block" role="group" aria-label="종일 일정"><div id="adSpans" class="ad-spans"></div>' + ALLDAY.map(schedRowHtml).join('') + '</div>' +
       HOURS.map(function (h) { return schedRowHtml(h, 0); }).join('');
   }
+  /* 일정 줄 이름: 시간·종일 칸은 '09'·'a1'처럼, 여러 날 종일 일정은 's:' + 일정 번호 */
+  function isSpanKey(k) { return typeof k === 'string' && k.indexOf('s:') === 0; }
+  function rowKey(row) { return row.dataset.span ? 's:' + row.dataset.span : row.dataset.h; }
+  function rowOf(k) {
+    if (!k) return null;
+    return isSpanKey(k) ? $('#schedList .sched-row[data-span="' + k.slice(2) + '"]') : $('#schedList .sched-row[data-h="' + k + '"]');
+  }
+  function isAllDayKey(k) { return isSpanKey(k) || isAllDay(k); }
+  function styleOfKey(k) {
+    if (isSpanKey(k)) { var sp = spanById(k.slice(2)); return sp ? { c: sp.c, b: sp.b, bc: sp.bc } : { c: '', b: false, bc: '' }; }
+    return styleOf(S.day && S.day.schedStyle, k);
+  }
 
-  /* 일정 글자 꾸미기 창: 고른 시간 줄 바로 아래에 펼쳐짐 */
+  /* 일정 글자 꾸미기 창: 고른 줄 바로 아래에 펼쳐짐 (종일 일정은 테두리 색도 고름) */
   var schedToolsH = null;
   function buildSchedTools() {
     var el = document.createElement('div');
     el.id = 'schedTools'; el.className = 'sched-tools'; el.hidden = true;
     el.setAttribute('role', 'group'); el.setAttribute('aria-label', '일정 글자 꾸미기');
-    el.innerHTML = '<div class="st-head"><b id="schedToolsTitle"></b> 글자 색 · 진하게<small>월간 달력에도 같은 모양으로 나옵니다</small></div>' +
+    el.innerHTML = '<div class="st-head"><b id="schedToolsTitle"></b> <span id="schedToolsWhat">글자 색 · 진하게</span><small id="schedToolsNote">월간 달력에도 같은 모양으로 나옵니다</small></div>' +
+      '<div class="st-lbl" id="stTextLbl" hidden>글자 색</div>' +
       '<div class="swatches">' + SCHED_COLORS.map(function (c) {
-        return '<button type="button" class="sw" data-c="' + c.id + '" style="--c:' + (c.hex || 'var(--ink)') + '" aria-label="' + c.name + '" title="' + c.name + '" aria-pressed="false"><i></i><span>' + c.name + '</span></button>';
+        return '<button type="button" class="sw" data-c="' + c.id + '" style="--c:' + (c.hex || 'var(--ink)') + '" aria-label="글자 ' + c.name + '" title="' + c.name + '" aria-pressed="false"><i></i><span>' + c.name + '</span></button>';
       }).join('') + '</div>' +
+      '<div id="stBorder" class="st-border" hidden><div class="st-lbl">테두리 색<small>월간 달력에서 종일 일정을 두르는 선</small></div>' +
+      '<div class="swatches">' + BORDER_COLORS.map(function (c) {
+        return '<button type="button" class="sw bsw" data-bc="' + c.id + '" style="--c:' + (c.hex || 'var(--green)') + '" aria-label="테두리 ' + c.name + '" title="' + (c.id ? c.name : '기본 (글자 색 또는 플래너 색)') + '" aria-pressed="false"><i></i><span>' + c.name + '</span></button>';
+      }).join('') + '</div></div>' +
       '<div class="st-foot"><button type="button" class="fmt-b" id="schedBold" aria-pressed="false"><b>B</b> 진하게</button>' +
       '<button type="button" class="btn small st-close">닫기</button></div>';
     document.body.appendChild(el);
   }
-  function openSchedTools(h) {
-    var row = $('#schedList .sched-row[data-h="' + h + '"]'), tools = $('#schedTools');
+  function openSchedTools(k) {
+    var row = rowOf(k), tools = $('#schedTools');
     if (!row || !tools) return;
-    if (schedToolsH === h && !tools.hidden) { closeSchedTools(); return; }
-    schedToolsH = h;
+    if (schedToolsH === k && !tools.hidden) { closeSchedTools(); return; }
+    closeRange();
+    schedToolsH = k;
     row.parentNode.insertBefore(tools, row.nextSibling);
     tools.hidden = false;
     renderSchedTools();
@@ -704,49 +838,258 @@
   }
   function renderSchedTools() {
     if (!schedToolsH) return;
-    var st = styleOf(S.day && S.day.schedStyle, schedToolsH);
-    $('#schedToolsTitle').textContent = schedLabel(schedToolsH) + ' 일정';
-    $$('#schedTools .sw').forEach(function (b) {
+    var k = schedToolsH, st = styleOfKey(k), ad = isAllDayKey(k);
+    $('#schedToolsTitle').textContent = isSpanKey(k) ? '종일 일정' : schedLabel(k) + ' 일정';
+    $('#schedToolsWhat').textContent = ad ? '글자 색 · 테두리 색 · 진하게' : '글자 색 · 진하게';
+    $('#schedToolsNote').textContent = ad ? '월간 달력에는 테두리만 있는 띠로 나옵니다' : '월간 달력에도 같은 모양으로 나옵니다';
+    $('#stTextLbl').hidden = !ad;
+    $('#stBorder').hidden = !ad;
+    $$('#schedTools .sw[data-c]').forEach(function (b) {
       var on = b.dataset.c === st.c;
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    $$('#schedTools .bsw').forEach(function (b) {
+      var on = b.dataset.bc === st.bc;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var defB = $('#schedTools .bsw[data-bc=""]');   // '기본' 테두리는 지금 글자 색(없으면 플래너 색)으로 보여 줌
+    if (defB) defB.style.setProperty('--c', colorHex(st.c) || 'var(--green)');
     var bb = $('#schedBold');
     bb.classList.toggle('on', st.b); bb.setAttribute('aria-pressed', st.b ? 'true' : 'false');
     $$('#schedList .sty').forEach(function (b) { b.classList.toggle('open', b.dataset.sty === schedToolsH); });
   }
   function paintSchedRow(row, st) {
-    var input = $('input', row), btn = $('.sty', row), hex = colorHex(st.c);
+    var input = $('input', row), btn = $('.sty', row), per = $('.per', row), hex = colorHex(st.c), k = rowKey(row);
     input.style.color = hex;
     input.style.fontWeight = st.b ? '700' : '';
     btn.style.setProperty('--c', hex || 'var(--ink-4)');
     btn.classList.toggle('is-set', !!hex);
     btn.classList.toggle('is-b', st.b);
-    btn.hidden = !input.value.trim() && schedToolsH !== row.dataset.h;
+    if (row.classList.contains('ad')) btn.style.setProperty('--bc', borderHex(st.bc) || hex || 'var(--green)');   // '가' 둘레 = 월간 달력의 테두리 색
+    var show = !!input.value.trim() || schedToolsH === k || rangeKey === k;
+    btn.hidden = !show;
+    if (per) { per.hidden = !show; per.classList.toggle('open', rangeKey === k); }
+    row.classList.toggle('bare', !show);   // 빈 종일 칸: 단추 자리까지 입력 칸으로 (예시 글이 잘리지 않게)
   }
-  function setSchedStyle(h, patch) {
-    if (!S.store || !h) return;
+  function setSchedStyle(k, patch) {
+    if (!S.store || !k) return;
+    var cur = styleOfKey(k), next = { c: 'c' in patch ? patch.c : cur.c, b: 'b' in patch ? !!patch.b : cur.b, bc: 'bc' in patch ? patch.bc : cur.bc };
+    if (isSpanKey(k)) {
+      var sp = spanById(k.slice(2)); if (!sp) return;
+      flushSpans();
+      sp.c = next.c; sp.b = next.b; sp.bc = next.bc;   // 화면에 바로 반영
+      spanEdit(sp.id, { c: next.c, b: next.b, bc: next.bc, updated: Date.now() });
+      renderSched(); renderMiniCal();
+      return;
+    }
     flushSched();   // 적고 있던 글자를 먼저 저장
-    var cur = styleOf(S.day && S.day.schedStyle, h), map = {};
-    map[h] = { c: 'c' in patch ? patch.c : cur.c, b: 'b' in patch ? !!patch.b : cur.b };
+    var map = {};
+    map[k] = isAllDay(k) ? next : { c: next.c, b: next.b };
     S.day = S.day || {};
     S.day.schedStyle = Object.assign({}, S.day.schedStyle || {}, map);   // 화면에 바로 반영
     S.store.setDay(S.date, { schedStyle: map });
     renderSched();
   }
 
+  /* ───── 종일 일정 기간 (예: 11월 6일 ~ 11월 8일) ─────
+     하루짜리 종일 칸(a1~a3)에서 기간을 정하면 '여러 날 종일 일정'으로 옮겨 저장하고, 그 기간의 모든 날짜에 나옴 */
+  var rangeKey = null;
+  function buildRangeTools() {
+    var el = document.createElement('div');
+    el.id = 'adRange'; el.className = 'sched-tools ad-range'; el.hidden = true;
+    el.setAttribute('role', 'group'); el.setAttribute('aria-label', '종일 일정 기간');
+    el.innerHTML = '<div class="st-head"><b id="adRangeTitle">종일 일정</b> 기간<small>며칠 동안 이어지는 일정은 끝나는 날을 고르세요. 월간 달력에 이어진 띠로 나옵니다.</small></div>' +
+      '<div class="ar-row"><label class="ar-l" for="adStart">시작</label><input type="date" id="adStart" class="date-in" aria-label="시작하는 날">' +
+      '<label class="ar-l" for="adEnd">끝</label><input type="date" id="adEnd" class="date-in" aria-label="끝나는 날"></div>' +
+      '<div class="st-foot"><span id="adDays" class="ar-days" aria-live="polite"></span><span class="ar-btns">' +
+      '<button type="button" class="btn small" id="adOneDay">하루만</button><button type="button" class="btn small ar-close">닫기</button></span></div>';
+    document.body.appendChild(el);
+  }
+  function rangeOf(k) {
+    if (isSpanKey(k)) { var sp = spanById(k.slice(2)); return sp ? { s: sp.s, e: sp.e } : null; }
+    return isAllDay(k) ? { s: S.date, e: S.date } : null;
+  }
+  function openRange(k) {
+    if (!S.store) return;
+    if (!spansOk()) { toast('기간을 정하려면 store.js 파일도 새 버전으로 올려 주세요.', 'error', null, 8000); return; }
+    var row = rowOf(k), el = $('#adRange');
+    if (!row || !el) return;
+    if (rangeKey === k && !el.hidden) { closeRange(); return; }
+    closeSchedTools();
+    rangeKey = k;
+    row.parentNode.insertBefore(el, row.nextSibling);
+    el.hidden = false;
+    renderRange(true);
+    renderSched();
+  }
+  function closeRange() {
+    clearTimeout(rangeTimer); rangePending = null;   // 저장하지 않은 날짜는 버림 (닫기 단추·Esc는 먼저 flushRange)
+    if (!rangeKey) return;
+    rangeKey = null;
+    var el = $('#adRange');
+    if (el) el.hidden = true;
+    $$('#schedList .per.open').forEach(function (b) { b.classList.remove('open'); });
+    $$('#schedList .sched-row').forEach(function (row) {   // 글이 없는 줄의 단추는 다시 숨김
+      var input = $('input', row), per = $('.per', row), sty = $('.sty', row);
+      if (per && !input.value.trim()) { per.hidden = true; if (schedToolsH !== rowKey(row)) { sty.hidden = true; row.classList.add('bare'); } }
+    });
+  }
+  function renderRange(force) {
+    if (!rangeKey) return;
+    var r = rangeOf(rangeKey);
+    if (!r) { closeRange(); return; }
+    var a = $('#adStart'), b = $('#adEnd'), n = spanDays(r.s, r.e), pend = !!rangePending;
+    if (force || (document.activeElement !== a && !pend)) a.value = r.s;
+    if (force || (document.activeElement !== b && !pend)) b.value = r.e;
+    b.min = r.s; b.max = addDays(r.s, SPAN_MAX - 1);
+    if (force || !pend) rangeNote('');
+    $('#adOneDay').hidden = n <= 1;
+  }
+  /* 기간 창 아래 줄: 평소에는 '3일 동안 · 11월 6일 ~ 11월 8일', 날짜가 맞지 않으면 그 까닭(빨간 글씨) */
+  function rangeNote(msg) {
+    var el = $('#adDays'), r = rangeKey && rangeOf(rangeKey);
+    el.classList.toggle('warn', !!msg);
+    if (msg) { el.textContent = msg; return; }
+    if (r) { var n = spanDays(r.s, r.e); el.textContent = (n > 1 ? n + '일 동안 · ' : '하루 · ') + rangeLong(r.s, r.e); }
+  }
+  /* 날짜 칸에 지금 들어 있는 값으로 새 기간을 정함: 시작을 바꾸면 끝은 그대로(시작보다 앞이면 시작과 같게),
+     끝은 시작과 같거나 그 뒤. 맞지 않으면 { err: 까닭 } */
+  function rangeFromInputs(which) {
+    var r = rangeKey && rangeOf(rangeKey);
+    if (!r) return null;
+    var v = (which === 'start' ? $('#adStart') : $('#adEnd')).value, s = r.s, e = r.e, y = +String(v).slice(0, 4);
+    if (!DATE_RE.test(v) || y < 1900 || y > 2200) return { err: '날짜를 끝까지 골라 주세요.' };
+    if (which === 'start') { s = v; if (e < s) e = s; }
+    else { if (v < s) return { err: '끝나는 날은 시작하는 날과 같거나 그 뒤여야 합니다.' }; e = v; }
+    if (spanDays(s, e) > SPAN_MAX) return { err: '기간은 최대 ' + SPAN_MAX + '일까지 정할 수 있습니다.' };
+    return { s: s, e: e };
+  }
+  /* 날짜를 고르면 잠깐(0.6초) 뒤 저장 — PC에서 키보드로 날짜를 치는 동안(2 → 20 → 202 → 2026)에는 저장하지 않음.
+     칸을 떠나거나 Enter·닫기를 누르면 바로 저장(맞지 않는 날짜면 원래대로 되돌리고 까닭을 알림) */
+  var rangeTimer = null, rangePending = null;
+  function onRangeInput(which) {
+    if (!rangeKey) return;
+    rangePending = { k: rangeKey, which: which };
+    var res = rangeFromInputs(which);
+    rangeNote(res && res.err ? res.err : '');
+    clearTimeout(rangeTimer);
+    if (res && !res.err) rangeTimer = setTimeout(flushRange, 600);
+  }
+  function flushRange(loud) {
+    clearTimeout(rangeTimer);
+    var p = rangePending; rangePending = null;
+    if (!p || p.k !== rangeKey) return;
+    var res = rangeFromInputs(p.which);
+    if (!res) return;
+    if (res.err) { renderRange(true); if (loud) toast(res.err); return; }
+    setRange(p.k, res.s, res.e);
+  }
+  function setRange(k, s, e) {
+    if (spanDays(s, e) > SPAN_MAX) { toast('기간은 최대 ' + SPAN_MAX + '일까지 정할 수 있습니다.'); renderRange(true); return; }
+    var r = rangeOf(k);
+    if (!r || (r.s === s && r.e === e)) { renderRange(true); return; }
+    if (isSpanKey(k)) {
+      var sp = spanById(k.slice(2)); if (!sp) { closeRange(); return; }
+      flushSpans();
+      sp.s = s; sp.e = e;   // 화면에 바로 반영
+      S.spans.sort(spanOrder);
+      spanEdit(sp.id, { s: s, e: e, updated: Date.now() });
+    } else {
+      k = slotToSpan(k, s, e);
+      if (!k) { renderRange(true); return; }
+      rangeKey = k;
+    }
+    if (s <= S.date && S.date <= e) {
+      renderSched(); renderRange(true);
+    } else {   // 이 날짜가 기간에서 빠지면 창을 닫고 알림
+      closeRange();
+      renderSched();
+      toast('기간을 ' + rangeLong(s, e) + '로 바꿨습니다. 이 날짜에는 이제 나오지 않습니다.', null, { label: '그날 보기', fn: function () { setDate(s); setTab('sched'); } }, 7000);
+    }
+    renderMiniCal();
+  }
+  /* 하루짜리 종일 칸 → 여러 날 종일 일정 (한 번에 저장: 칸은 비우고 기간 일정을 새로 만듦) */
+  function slotToSpan(h, s, e) {
+    var input = $('#schedList input[data-h="' + h + '"]'), text = input ? input.value.trim() : '';
+    if (!text) { toast('먼저 일정 내용을 적어 주세요.'); return null; }
+    flushSched();
+    var st = styleOf(S.day && S.day.schedStyle, h), id = S.store.newSpanId(), now = Date.now();
+    var data = { s: s, e: e, t: text, c: st.c, b: st.b, bc: st.bc, created: now, updated: now };
+    var clr = { sched: {}, schedStyle: {} };
+    clr.sched[h] = ''; clr.schedStyle[h] = { c: '', b: false, bc: '' };
+    S.day = S.day || {};   // 화면에 바로 반영
+    S.day.sched = Object.assign({}, S.day.sched || {}, clr.sched);
+    S.day.schedStyle = Object.assign({}, S.day.schedStyle || {}, clr.schedStyle);
+    if (input) input.value = '';
+    S.spans = S.spans.concat([Object.assign({ id: id }, data)]).sort(spanOrder);
+    S.store.commit([{ type: 'day', date: S.date, data: clr }, { type: 'span', id: id, data: data }]);
+    return 's:' + id;
+  }
+  /* 날짜 표시: '11월 6일 ~ 11월 8일' (올해가 아니면 연도도) · 짧게 '11.6(금) ~ 11.8(일)' */
+  function dateLong(ds, withYear) { var d = parse(ds); return (withYear ? d.getFullYear() + '년 ' : '') + (d.getMonth() + 1) + '월 ' + d.getDate() + '일'; }
+  function rangeLong(s, e) {
+    var y0 = S.date.slice(0, 4), wy = s.slice(0, 4) !== y0 || e.slice(0, 4) !== y0;
+    return s === e ? dateLong(s, wy) : dateLong(s, wy) + ' ~ ' + dateLong(e, wy && e.slice(0, 4) !== s.slice(0, 4));
+  }
+  function dateShort(ds, withYear) { var d = parse(ds); return (withYear ? d.getFullYear() + '.' : '') + (d.getMonth() + 1) + '.' + d.getDate() + '(' + WD[d.getDay()] + ')'; }
+  function rangeShort(s, e) {
+    var wy = s.slice(0, 4) !== e.slice(0, 4);
+    return s === e ? dateShort(s) : dateShort(s, wy) + ' ~ ' + dateShort(e, wy);
+  }
+
+  /* 여러 날 종일 일정 줄 (그 기간의 어느 날짜에서든 글자·기간·색을 고칠 수 있음) */
+  function spanRowEl(id) {
+    var f = document.createElement('form');
+    f.className = 'sched-row ad span'; f.dataset.span = id; f.setAttribute('autocomplete', 'off');
+    f.innerHTML = '<div class="hh">종일</div><input type="text" data-span="' + id + '" maxlength="200" enterkeyhint="done" autocomplete="off">' +
+      '<button type="button" class="per" data-per="s:' + id + '" title="기간 바꾸기">기간</button>' +
+      '<button type="button" class="sty" data-sty="s:' + id + '" aria-label="종일 일정 글자 색 · 테두리 색 · 진하게" title="글자 색 · 테두리 색 · 진하게"><span>가</span></button>' +
+      '<span class="ad-cap"></span>';
+    return f;
+  }
+  function renderSpanRows() {
+    var box = $('#adSpans'); if (!box) return 0;
+    var list = spansOn(S.date), want = {}, have = {};
+    list.forEach(function (sp) { want[sp.id] = true; });
+    $$('.sched-row', box).forEach(function (r) { if (want[r.dataset.span]) have[r.dataset.span] = r; else r.remove(); });
+    list.forEach(function (sp, i) {
+      var row = have[sp.id] || spanRowEl(sp.id), cur = $$('.sched-row', box)[i];
+      if (cur !== row) { if (cur) box.insertBefore(row, cur); else box.appendChild(row); }
+      var input = $('input', row), n = spanDays(sp.s, sp.e), k = spanDays(sp.s, S.date);
+      if (document.activeElement !== input && !spanPending.has(sp.id)) input.value = sp.t;
+      $('.ad-cap', row).textContent = rangeShort(sp.s, sp.e) + ' · ' + (n > 1 ? n + '일' + (k > 1 ? ' 중 ' + k + '일째' : '') : '하루');
+      input.setAttribute('aria-label', '종일 일정, ' + rangeLong(sp.s, sp.e));
+      $('.per', row).setAttribute('aria-label', '기간 바꾸기 (지금 ' + rangeLong(sp.s, sp.e) + ')');
+      paintSchedRow(row, { c: sp.c, b: sp.b, bc: sp.bc });
+    });
+    return list.length;
+  }
+  /* 꾸미기·기간 창이 그 줄 바로 아래에 있도록 (줄 순서가 바뀌었거나 줄이 없어졌을 때) */
+  function placeTools() {
+    [['#schedTools', schedToolsH, closeSchedTools], ['#adRange', rangeKey, closeRange]].forEach(function (p) {
+      var el = $(p[0]), k = p[1]; if (!el || el.hidden || !k) return;
+      var row = rowOf(k);
+      if (!row || row.hidden) { p[2](); return; }
+      if (row.nextElementSibling !== el) row.parentNode.insertBefore(el, row.nextSibling);
+    });
+  }
+
   function renderSched() {
     var sched = (S.day && S.day.sched) || {}, style = (S.day && S.day.schedStyle) || {};
     var nowH = pad(new Date().getHours()), isToday = S.date === today(), n = 0;
-    $$('#schedList .sched-row').forEach(function (row) {
+    $$('#schedList .sched-row[data-h]').forEach(function (row) {
       var h = row.dataset.h, input = $('input', row), key = S.date + '|' + h;
       row.classList.toggle('now', isToday && h === nowH);
       if (document.activeElement !== input && !schedPending.has(key)) input.value = sched[h] || '';
       paintSchedRow(row, styleOf(style, h));
       if ((sched[h] || '').trim()) n++;
     });
+    n += renderSpanRows();
     $('#cntSched').textContent = n ? String(n) : '';
     showAllDayRows();
+    placeTools();
     renderSchedTools();
+    renderRange();
   }
 
   /* 종일 칸: 첫 칸은 늘 보이고, 위 칸에 글이 있으면 아래에 빈 칸이 하나 더 보임 (3개까지) */
@@ -755,7 +1098,7 @@
     ALLDAY.forEach(function (h, i) {
       var row = $('#schedList .sched-row[data-h="' + h + '"]'); if (!row) return;
       var input = $('input', row), has = !!input.value.trim();
-      var show = i === 0 || has || prevHas || document.activeElement === input || schedToolsH === h;
+      var show = i === 0 || has || prevHas || document.activeElement === input || schedToolsH === h || rangeKey === h;
       if (row.hidden === show) row.hidden = !show;
       prevHas = has;
     });
@@ -777,11 +1120,12 @@
     ALLDAY.forEach(function (h, i) {
       var it = items[i];
       sched[h] = it ? it.text : '';
-      st[h] = it ? { c: it.st.c, b: it.st.b } : { c: '', b: false };
+      st[h] = it ? { c: it.st.c, b: it.st.b, bc: it.st.bc } : { c: '', b: false, bc: '' };
       var input = $('#schedList input[data-h="' + h + '"]');
       if (input) input.value = sched[h];
     });
     closeSchedTools();
+    if (rangeKey && !isSpanKey(rangeKey)) closeRange();
     S.day = S.day || {};
     S.day.sched = Object.assign({}, S.day.sched || {}, sched);              // 화면에 바로 반영
     S.day.schedStyle = Object.assign({}, S.day.schedStyle || {}, st);
@@ -792,9 +1136,9 @@
   /* Enter(휴대폰 '완료')로 일정 한 줄을 마침: 저장하고 키보드를 닫은 뒤 잠깐 '✓ 저장' 표시 */
   function commitSchedRow(row) {
     var input = row && $('input', row); if (!input) return;
-    flushSched();
+    if (row.dataset.span) flushSpans(); else flushSched();
     var has = !!input.value.trim();
-    input.blur();
+    input.blur();   // 여러 날 종일 일정의 글자를 모두 지우고 Enter를 누르면, 칸을 떠날 때 지워짐(되돌리기 가능)
     if (!has) return;
     row.classList.remove('saved');
     void row.offsetWidth;   // 같은 줄에서 다시 눌러도 표시가 다시 나타나게
@@ -849,14 +1193,15 @@
   function renderMiniCal() {
     var mk = monthKey(S.date), p = mk.split('-'), y = +p[0], m = +p[1];
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var map = S.schedKey === mk ? S.sched : {}, bgs = S.schedKey === mk ? S.dayBg : {};
+    var cur = S.schedKey === mk, map = cur ? S.sched : {}, bgs = cur ? S.dayBg : {};
+    var covered = coveredDays(cur ? S.spans : [], mk + '-01', mk + '-' + pad(days));   // 여러 날 종일 일정이 걸친 날
     var html = '<div class="mc-head"><span>' + y + '년 ' + m + '월</span><button data-go="month">월간 달력 ›</button></div>';
     html += '<table><thead><tr>' + WD.map(function (w) { return '<th>' + w + '</th>'; }).join('') + '</tr></thead><tbody><tr>';
     var cell = 0, i;
     for (i = 0; i < first; i++) { html += '<td></td>'; cell++; }
     for (var d = 1; d <= days; d++) {
       var ds = mk + '-' + pad(d), cls = [], bg = dayBg(bgs && bgs[ds]);
-      if (schedEntries(map[ds]).length) cls.push('has');
+      if (schedEntries(map[ds]).length || covered[ds]) cls.push('has');
       if (ds === t0) cls.push('today');
       if (ds === S.date) cls.push('sel');
       if (bg) cls.push('bg');
@@ -868,67 +1213,143 @@
     html += '</tr></tbody></table>';
     $('#minical').innerHTML = html;
   }
+  function coveredDays(spans, from, to) {
+    var out = {};
+    (spans || []).forEach(function (v) {
+      for (var ds = v.s < from ? from : v.s, n = 0; ds <= v.e && ds <= to && n < 40; ds = addDays(ds, 1), n++) out[ds] = true;
+    });
+    return out;
+  }
+
+  /* 월간 달력에 그릴 종일 일정: 하루짜리(종일 칸 a1~a3)와 여러 날 종일 일정(기간을 정한 일정)
+     먼저 시작하는 일정 → 더 긴 일정 → 여러 날 일정 → 칸 순서 */
+  function allDayItems(map, smap, spans, from, to) {
+    var out = [];
+    Object.keys(map || {}).forEach(function (ds) {
+      if (ds < from || ds > to || !map[ds]) return;
+      ALLDAY.forEach(function (h, i) {
+        var text = String(map[ds][h] == null ? '' : map[ds][h]).trim();
+        if (!text) return;
+        var st = styleOf(smap && smap[ds], h);
+        out.push({ key: ds + '|' + h, s: ds, e: ds, text: text, c: st.c, b: st.b, bc: st.bc, rank: 1, ord: i });
+      });
+    });
+    (spans || []).forEach(function (v) {
+      if (v.e < from || v.s > to) return;
+      out.push({ key: 's:' + v.id, s: v.s, e: v.e, text: v.t.trim(), c: v.c, b: v.b, bc: v.bc, rank: 0, ord: v.created || 0 });
+    });
+    return out.sort(function (a, b) {
+      return (a.s < b.s ? -1 : a.s > b.s ? 1 : 0) || (a.e > b.e ? -1 : a.e < b.e ? 1 : 0) || (a.rank - b.rank) || (a.ord - b.ord);
+    });
+  }
+  /* 달력 한 줄(일~토)의 종일 일정 조각: 겹치지 않게 위에서부터 줄(lane)을 나눠 줌 */
+  function weekSegments(items, dates) {
+    var from = null, to = null, lanes = [], segs = [];
+    dates.forEach(function (ds) { if (ds) { if (!from) from = ds; to = ds; } });
+    if (!from) return segs;
+    items.forEach(function (it) {
+      if (it.e < from || it.s > to) return;
+      var c0 = dates.indexOf(it.s < from ? from : it.s), c1 = dates.indexOf(it.e > to ? to : it.e), k = 0;
+      while (lanes[k] && lanes[k].some(function (g) { return !(c1 < g[0] || c0 > g[1]); })) k++;
+      (lanes[k] = lanes[k] || []).push([c0, c1]);
+      segs.push({ it: it, c0: c0, c1: c1, lane: k, cl: it.s < dates[c0], cr: it.e > dates[c1] });
+    });
+    return segs;
+  }
+  /* 종일 일정 띠: 칸 위에 겹쳐 그림(누르면 아래 날짜 칸이 눌림). 글자 둘레의 색은 없애고 테두리만.
+     띠 안쪽은 아래 칸의 바탕색과 같은 색으로 채워 칸 사이 선만 가림 → 여러 날이 한 줄로 이어져 보임 */
+  function barHtml(g, R, r, dates, bgs, accent) {
+    var it = g.it, n = g.c1 - g.c0 + 1, cols = [], darkest = '#FFFFFF', x;
+    for (x = g.c0; x <= g.c1; x++) {
+      var b = dayBg(bgs && bgs[dates[x]]), hex = b ? b.hex : '#FFFFFF';
+      cols.push(hex);
+      if (lumOf(hex) < lumOf(darkest)) darkest = hex;
+    }
+    var same = cols.every(function (h) { return h === cols[0]; });
+    var fill = same ? cols[0] : 'linear-gradient(90deg,' + cols.map(function (h, i) {
+      return h + ' ' + (i * 100 / n).toFixed(3) + '% ' + ((i + 1) * 100 / n).toFixed(3) + '%';
+    }).join(',') + ')';
+    var tc = colorHex(it.c), bc = borderHex(it.bc) || tc || accent;
+    if (tc && darkest !== '#FFFFFF') tc = readableOn(tc, darkest, 4.5);   // 색칠한 칸 위에서도 또렷하게
+    if (contrastOf(bc, darkest) < 3) bc = readableOn(bc, darkest, 3);
+    return '<span class="adbar' + (g.cl ? ' cl' : '') + (g.cr ? ' cr' : '') + (it.b ? ' em' : '') + '" data-r="' + r + '" data-c0="' + g.c0 + '" data-c1="' + g.c1 + '" data-lane="' + g.lane + '" data-key="' + esc(it.key) + '"' +
+      ' style="grid-area:' + R + '/' + (g.c0 + 2) + '/auto/span ' + n + ';--lane:' + g.lane + ';--bc:' + bc + (tc ? ';--tc:' + tc : '') + ';background:' + fill + '" aria-hidden="true">' +
+      '<span class="t">' + esc(it.text) + '</span></span>';
+  }
 
   var mqWide = window.matchMedia ? window.matchMedia('(min-width:900px)') : null;
   function renderMonth() {
-    var p = S.monthCursor.split('-'), y = +p[0], m = +p[1];
+    var mk = S.monthCursor, p = mk.split('-'), y = +p[0], m = +p[1];
     $('#monthTitle').textContent = y + '년 ' + m + '월';
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var cur = S.schedKey === S.monthCursor;
+    var cur = S.schedKey === mk;
     var map = cur ? S.sched : {}, smap = cur ? S.schedStyle : {}, bgs = cur ? S.dayBg : {};
+    var items = allDayItems(map, smap, cur ? S.spans : [], mk + '-01', mk + '-' + pad(days)), accent = accentHex();
     var rows = Math.ceil((first + days) / 7);
-    var html = '<div class="wkh">주차</div>' +
-      WD.map(function (w, i) { return '<div class="wd ' + (i === 0 ? 'sun' : i === 6 ? 'sat' : '') + '">' + w + '</div>'; }).join('');
+    // 칸마다 자리를 정해 둠(grid-area) → 종일 일정 띠를 여러 칸에 걸쳐 겹쳐 그릴 수 있음
+    var html = '<div class="wkh" style="grid-area:1/1">주차</div>' +
+      WD.map(function (w, i) { return '<div class="wd ' + (i === 0 ? 'sun' : i === 6 ? 'sat' : '') + '" style="grid-area:1/' + (i + 2) + '">' + w + '</div>'; }).join('');
     for (var r = 0; r < rows; r++) {
-      var cells = '', hasToday = false;
-      for (var c = 0; c < 7; c++) {
-        var d = r * 7 + c - first + 1;
-        if (d < 1 || d > days) { cells += '<div class="cell blank"></div>'; continue; }
-        var ds = S.monthCursor + '-' + pad(d), list = schedEntries(map[ds], smap && smap[ds]);
+      var R = r + 2, dates = [], cells = '', hasToday = false, c;
+      for (c = 0; c < 7; c++) { var dd = r * 7 + c - first + 1; dates.push(dd >= 1 && dd <= days ? mk + '-' + pad(dd) : null); }
+      var segs = weekSegments(items, dates), nAt = [0, 0, 0, 0, 0, 0, 0];
+      segs.forEach(function (g) { for (var x = g.c0; x <= g.c1; x++) nAt[x] = Math.max(nAt[x], g.lane + 1); });
+      for (c = 0; c < 7; c++) {
+        var ds = dates[c];
+        if (!ds) { cells += '<div class="cell blank" style="grid-area:' + R + '/' + (c + 2) + '"></div>'; continue; }
+        var d = +ds.slice(8), list = schedEntries(map[ds], smap && smap[ds]).filter(function (e) { return !e.allDay; });
         var bg = dayBg(bgs && bgs[ds]);
         var cls = ['cell']; if (c === 0) cls.push('sun'); if (c === 6) cls.push('sat');
         if (ds === t0) { cls.push('today'); hasToday = true; }
         if (ds === S.date) cls.push('sel');
-        if (bg) cls.push('has-bg');
+        if (bg) { cls.push('has-bg'); if (bg.deep) cls.push('bg-deep'); }
         var lu = c === 0 ? lunarOf(ds) : null;   // 일요일 칸 오른쪽 위 끝에 음력
         var inner = '<span class="top"><span class="dn">' + d + '</span>' +
           (lu ? '<span class="lunar" title="음력 ' + (lu.leap ? '윤' : '') + lu.m + '월 ' + lu.d + '일"><i>음 </i>' + (lu.leap ? '윤' : '') + lu.m + '.' + lu.d + '</span>' : '') + '</span>';
-        if (list.length) {
-          inner += '<span class="scs">' + list.map(function (e) {
+        if (nAt[c]) inner += '<span class="ad-space" data-n="' + nAt[c] + '" style="--n:' + nAt[c] + '"></span>';   // 종일 일정 띠 자리
+        if (list.length || nAt[c]) {
+          inner += '<span class="scs">' + list.map(function (e) {   // 시간 일정: '9시 회의'처럼
             var hex = colorHex(e.c);
-            // 종일 일정: 시간 없이 색 띠(흰 글씨)로. 시간 일정: '9시 회의'처럼
-            if (e.allDay) return '<span class="sc ad' + (e.b ? ' em' : '') + '"' + (hex ? ' style="--sc:' + hex + '"' : '') + '>' + esc(e.text) + '</span>';
-            if (hex && bg) hex = mixHex(hex, '#000000', 0.18);   // 색칠한 칸에서도 글씨가 또렷하게 조금 진하게
+            if (hex && bg) hex = readableOn(hex, bg.hex, 4.5);   // 색칠한 칸에서도 글씨가 또렷하게
             return '<span class="sc' + (e.b ? ' em' : '') + '"' + (hex ? ' style="--sc:' + hex + '"' : '') + '><b>' + e.label + '</b>' + esc(e.text) + '</span>';
           }).join('') + '</span><span class="sc-more" hidden></span>';
         }
-        cells += '<button class="' + cls.join(' ') + '" data-date="' + ds + '"' +
-          (bg ? ' data-bg="' + bg.id + '" style="--cbg:' + bg.hex + '"' : '') +
-          ' aria-label="' + m + '월 ' + d + '일' + (bg ? ', 바탕색 ' + bg.name : '') +
-          (list.length ? ', 일정 ' + list.length + '개' : '') + '"' +
-          (list.length ? ' title="' + esc(list.map(function (e) { return e.label + ' ' + e.text; }).join('\n')) + '"' : '') + '>' + inner + '</button>';
+        var here = segs.filter(function (g) { return g.c0 <= c && c <= g.c1; }).map(function (g) {
+          return '종일 ' + g.it.text + (g.it.s !== g.it.e ? ' (' + rangeShort(g.it.s, g.it.e) + ')' : '');
+        }).concat(list.map(function (e) { return e.label + ' ' + e.text; }));
+        cells += '<button class="' + cls.join(' ') + '" data-date="' + ds + '" data-r="' + r + '" data-c="' + c + '"' +
+          ' style="grid-area:' + R + '/' + (c + 2) + (bg ? ';--cbg:' + bg.hex : '') + '"' + (bg ? ' data-bg="' + bg.id + '"' : '') +
+          ' aria-label="' + m + '월 ' + d + '일' + (bg ? ', 바탕색 ' + bg.name : '') + (here.length ? ', 일정 ' + here.length + '개' : '') + '"' +
+          (here.length ? ' title="' + esc(here.join('\n')) + '"' : '') + '>' + inner + '</button>';
       }
-      var wn = weekOfYear(S.monthCursor + '-' + pad(Math.max(1, r * 7 - first + 1)));   // 그 줄의 올해 주차
-      html += '<div class="wkc' + (hasToday ? ' cur' : '') + '">' + wn + '<small>주</small></div>' + cells;
+      var wn = weekOfYear(mk + '-' + pad(Math.max(1, r * 7 - first + 1)));   // 그 줄의 올해 주차
+      html += '<div class="wkc' + (hasToday ? ' cur' : '') + '" style="grid-area:' + R + '/1">' + wn + '<small>주</small></div>' + cells +
+        segs.map(function (g) { return barHtml(g, R, r, dates, bgs, accent); }).join('');
     }
     var grid = $('#mgrid');
     grid.innerHTML = html;
     grid.dataset.lines = String(cellLines());
     grid.classList.toggle('painting', S.painting);
+    applyDowVars();
     fitMonth();
   }
 
   /* ───────── 날짜 바탕색 칠하기 (월간 달력) ─────────
-     '바탕색' 단추 → 색을 고르고 날짜를 누르면 칠해짐. 같은 색으로 한 번 더 누르면 지워짐 */
+     '바탕색' 단추 → 색을 고르고 날짜를 누르면 칠해짐. 같은 색으로 한 번 더 누르면 지워짐.
+     색은 12가지 × 연하게·보통·진하게 (위 줄이 연하게, 아래 줄이 진하게) */
   function buildPaintBar() {
-    $('#paintSwatches').innerHTML = DAY_BGS.map(function (c) {
-      return '<button type="button" class="pbs" data-bg="' + c.id + '" style="--b:' + c.hex + '" aria-pressed="false" aria-label="' + c.name + '" title="' + c.name + '"><i></i><span>' + c.name + '</span></button>';
-    }).join('') +
-      '<button type="button" class="pbs erase" data-bg="" aria-pressed="false" aria-label="지우개 (바탕색 지우기)" title="지우개"><i></i><span>지우개</span></button>';
+    var html = '';
+    BG_TONES.forEach(function (t, ti) {
+      html += '<span class="pb-tone">' + t.label + '</span>';
+      DAY_BGS.filter(function (c) { return c.tone === ti; }).forEach(function (c) {
+        html += '<button type="button" class="pbs" data-bg="' + c.id + '" style="--b:' + c.hex + '" aria-pressed="false" aria-label="' + c.name + '" title="' + c.name + '"><i></i></button>';
+      });
+    });
+    $('#paintSwatches').innerHTML = html;
   }
   function renderPaintBar() {
     var c = S.paintColor, bg = dayBg(c);
-    $$('#paintSwatches .pbs').forEach(function (b) {
+    $$('#paintBar .pbs').forEach(function (b) {
       var on = b.dataset.bg === c;
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
@@ -939,6 +1360,7 @@
   function openPaint() {
     if (!S.store) return;
     if (!storeIsCurrent()) { toast('바탕색을 쓰려면 store.js 파일도 새 버전으로 올려 주세요.', 'error', null, 8000); return; }
+    closeDow();
     S.painting = true;
     $('#paintBar').hidden = false;
     var btn = $('#btnPaint');
@@ -966,28 +1388,157 @@
     renderMiniCal();
   }
 
+  /* ───────── 요일 칸 색 (월간 달력 맨 위 '일 월 화 …' 줄) ─────────
+     고르면 바로 바뀌고, 동기화를 설정했다면 PC·휴대폰에 함께 적용. 글씨 색은 바탕에 맞춰 저절로(대비 4.5:1 이상) */
+  function dowHex(v) {
+    if (v === 'theme') return accentHex();
+    if (isHex(v)) return v.toUpperCase();
+    var d = dowById(v);
+    return d ? d.hex : '';
+  }
+  function lightOn(hex, bg) {
+    var c = hex, i = 0;
+    while (contrastOf(c, bg) < 4.5 && i++ < 12) c = mixHex(c, '#FFFFFF', 0.25);
+    return contrastOf(c, bg) >= 4.5 ? c : '#FFFFFF';
+  }
+  function dowVars(v) {
+    var bg = dowHex(v);
+    if (!bg) return null;
+    var white = contrastOf('#FFFFFF', bg) >= 4.5;
+    return {
+      bg: bg,
+      fg: white ? '#FFFFFF' : readableOn('#575247', bg, 4.5),
+      sun: white ? lightOn('#FFC9C9', bg) : readableOn('#8A2B2B', bg, 4.5),
+      sat: white ? lightOn('#CADFFF', bg) : readableOn('#4A5E70', bg, 4.5),
+      line: white ? mixHex(bg, '#FFFFFF', 0.28) : mixHex(bg, '#000000', 0.14)
+    };
+  }
+  function applyDowVars() {
+    var grid = $('#mgrid'); if (!grid) return;
+    var v = dowVars(S.dowColor);
+    [['--wdbg', 'bg'], ['--wdfg', 'fg'], ['--wdsun', 'sun'], ['--wdsat', 'sat'], ['--wdline', 'line']].forEach(function (p) {
+      if (v) grid.style.setProperty(p[0], v[p[1]]); else grid.style.removeProperty(p[0]);
+    });
+    grid.classList.toggle('dow-set', !!v);
+  }
+  function applyDow(v) {
+    v = typeof v === 'string' && (v === '' || v === 'theme' || isHex(v) || dowById(v)) ? v : '';
+    S.dowColor = isHex(v) ? v.toUpperCase() : v;
+    writePref('dowColor', S.dowColor);
+    applyDowVars();
+    if (S.dowOpen) renderDowBar();
+  }
+  function chooseDow(v) {
+    applyDow(v);
+    if (S.store) S.store.setProfile({ dowColor: S.dowColor });
+  }
+  function dowName(v) {
+    if (!v) return '기본 (종이색)';
+    if (v === 'theme') return '플래너 색';
+    if (isHex(v)) return '직접 고른 색';
+    var d = dowById(v);
+    return d ? d.name : '기본 (종이색)';
+  }
+  function buildDowBar() {
+    var sw = function (d) {
+      return '<button type="button" class="pbs dws" data-dow="' + d.id + '" style="--b:' + d.hex + '" aria-pressed="false" aria-label="' + d.name + '" title="' + d.name + '"><i></i></button>';
+    };
+    var cc = isHex(S.dowColor) ? S.dowColor : '#3A6EA5';
+    $('#dowSwatches').innerHTML =
+      '<div class="dow-top">' +
+        '<button type="button" class="dws wide" data-dow="" aria-pressed="false"><i class="def"></i><span>기본</span></button>' +
+        '<button type="button" class="dws wide" data-dow="theme" aria-pressed="false"><i class="theme"></i><span>플래너 색</span></button>' +
+        '<label class="dws wide custom" data-dow="custom"><i class="rainbow" id="dowCustomDot"></i><span>직접 고르기</span>' +
+        '<input type="color" id="dowColorIn" value="' + cc.toLowerCase() + '" aria-label="요일 칸 색 직접 고르기"></label>' +
+      '</div>' +
+      '<div class="pb-sw pb-grid"><span class="pb-tone">진한 색</span>' + DOW_COLORS.filter(function (d) { return d.id.indexOf('dk-') === 0; }).map(sw).join('') +
+      '<span class="pb-tone">연한 색</span>' + DOW_COLORS.filter(function (d) { return d.id.indexOf('lt-') === 0; }).map(sw).join('') + '</div>';
+  }
+  function renderDowBar() {
+    var v = S.dowColor, custom = isHex(v);
+    $$('#dowSwatches .dws').forEach(function (b) {
+      var on = custom ? b.dataset.dow === 'custom' : b.dataset.dow === v;
+      b.classList.toggle('on', on);
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var dot = $('#dowCustomDot');
+    if (dot) dot.style.background = custom ? v : '';
+    var bg = dowHex(v);
+    $('#dowNow').innerHTML = '<i style="background:' + (bg || 'var(--paper-2)') + '"></i>' + esc(dowName(v)) + '<span> — 고르면 바로 바뀝니다</span>';
+  }
+  function openDow() {
+    if (!S.store) return;
+    closePaint();
+    S.dowOpen = true;
+    $('#dowBar').hidden = false;
+    var btn = $('#btnDow');
+    btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+    renderDowBar();
+  }
+  function closeDow() {
+    if (!S.dowOpen) return;
+    S.dowOpen = false;
+    $('#dowBar').hidden = true;
+    var btn = $('#btnDow');
+    btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false');
+  }
+
   /* 일정 한 개가 칸에서 차지할 줄 수: 휴대폰은 칸이 좁아 '보통'까지는 한 줄(더 많은 일정이 보임) */
   function cellLines() {
     var wide = !!(mqWide && mqWide.matches);
     return (wide ? [1, 2, 2, 3, 3] : [1, 1, 2, 2, 3])[S.cellSize - 1];
   }
 
-  /* 칸에 다 들어가지 않는 일정은 숨기고 '+N'으로 (칸 크기·글꼴·화면 너비에 맞춰 계산) */
+  /* 칸에 다 들어가지 않는 일정은 숨기고 '+N'으로 (칸 크기·글꼴·화면 너비에 맞춰 계산)
+     종일 일정 띠도 칸 높이에 들어가는 줄 수까지만 보이고, 나머지는 '+N'에 더함 */
   function fitMonth() {
     var grid = $('#mgrid');
     if (!grid || !grid.offsetWidth) return;   // 달력이 보이지 않을 때는 다음에 보일 때 계산
     var wide = !!(mqWide && mqWide.matches);
-    $$('.cell', grid).forEach(function (cell) {
+    var bars = $$('.adbar', grid), cells = $$('.cell:not(.blank)', grid);
+    bars.forEach(function (b) { b.hidden = false; });
+    cells.forEach(function (cell) {
+      cell._adHidden = 0;
+      var sp = $('.ad-space', cell);
+      if (sp) { sp.hidden = false; sp.style.setProperty('--n', sp.dataset.n); }
+    });
+    if (bars.length && cells.length) {
+      var probe = cells[0], cs = getComputedStyle(probe), more = $('.sc-more', grid);
+      var gap = parseFloat(cs.rowGap) || 0, laneH = bars[0].offsetHeight + gap;
+      var avail = probe.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - $('.top', probe).offsetHeight;
+      var moreH = more ? parseFloat(getComputedStyle(more).fontSize) * 1.4 + gap : 16;
+      var capFull = Math.floor((avail + 0.5) / laneH), capRes = Math.max(0, Math.floor((avail - moreH + 0.5) / laneH));
+      var byRow = {};
+      bars.forEach(function (b) { (byRow[b.dataset.r] = byRow[b.dataset.r] || []).push(b); });
+      Object.keys(byRow).forEach(function (r) {
+        var rb = byRow[r], need = 0;
+        rb.forEach(function (b) { need = Math.max(need, +b.dataset.lane + 1); });
+        if (need <= capFull) return;
+        var rowCells = cells.filter(function (cl) { return cl.dataset.r === r; });
+        rb.forEach(function (b) {
+          if (+b.dataset.lane < capRes) return;
+          b.hidden = true;
+          rowCells.forEach(function (cl) { var x = +cl.dataset.c; if (x >= +b.dataset.c0 && x <= +b.dataset.c1) cl._adHidden++; });
+        });
+        rowCells.forEach(function (cl) {
+          var sp = $('.ad-space', cl); if (!sp) return;
+          var n = Math.min(+sp.dataset.n, capRes);
+          if (n) sp.style.setProperty('--n', n); else sp.hidden = true;
+        });
+      });
+    }
+    cells.forEach(function (cell) {
       var box = $('.scs', cell), more = $('.sc-more', cell);
       if (!box || !more) return;
-      var items = box.children, i, n = 0;
+      var items = box.children, i, n = 0, adh = cell._adHidden || 0;
       for (i = 0; i < items.length; i++) items[i].hidden = false;
       more.hidden = true;
-      if (box.scrollHeight <= box.clientHeight + 1) return;
-      more.hidden = false;   // '+N' 줄 자리를 비워 두고 다시 잼
+      if (!adh && box.scrollHeight <= box.clientHeight + 1) return;
+      more.textContent = '+0'; more.hidden = false;   // '+N' 줄 자리를 비워 두고 다시 잼
       var lim = box.clientHeight;
       for (i = 0; i < items.length; i++) if (items[i].offsetTop + items[i].offsetHeight > lim + 1) break;
       for (var j = i; j < items.length; j++) { items[j].hidden = true; n++; }
+      n += adh;
       more.textContent = '+' + n + (wide ? '개 더' : '');
       more.hidden = !n;
     });
@@ -1130,6 +1681,7 @@
       else localStorage.removeItem('my-planner:themeVars');
     } catch (e) { /* 저장 못 해도 지금 화면에는 적용됨 */ }
     if (S.view === 'font') markThemeCards();
+    if (S.view === 'month') renderMonth();   // 종일 일정 기본 테두리 · '플래너 색' 요일 칸이 새 색을 따라가도록
   }
 
   function chooseTheme(id, color) {
@@ -1198,8 +1750,8 @@
   var VIEWS = { day: '#dayView', month: '#monthView', memos: '#memosView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
   function showView(v) {
     if (v !== 'values') flushValues();
-    if (v !== 'day') { flushNotes(); flushSched(); closeSchedTools(); }
-    if (v !== 'month') closePaint();
+    if (v !== 'day') { flushRange(); flushNotes(); flushSched(); flushSpans(); closeSchedTools(); closeRange(); }
+    if (v !== 'month') { closePaint(); closeDow(); }
     S.view = v;
     Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== v; });
     if (v === 'month') { subscribeSched(S.monthCursor); renderMonth(); }
@@ -1221,7 +1773,7 @@
 
   function setDate(d) {
     if (!d) return;
-    flushNotes(); flushSched();
+    flushRange(); flushNotes(); flushSched(); flushSpans();
     S.date = d; S.followToday = d === today();
     if (S.view !== 'day') showView('day');
     subscribeDay();
@@ -1444,10 +1996,14 @@
 
   var schedPending = new Map(), schedTimer = null;
   function onSchedInput(e) {
+    if (e.target.dataset.span) { onSpanInput(e); return; }
     var h = e.target.dataset.h; if (!h) return;
     schedPending.set(S.date + '|' + h, e.target.value);
-    var btn = $('.sty', e.target.parentNode);
-    if (btn) btn.hidden = !e.target.value.trim() && schedToolsH !== h;
+    var row = e.target.closest('.sched-row'), show = !!e.target.value.trim();
+    var btn = $('.sty', row), per = $('.per', row);
+    if (btn) btn.hidden = !show && schedToolsH !== h;
+    if (per) per.hidden = !show && rangeKey !== h;
+    row.classList.toggle('bare', !!btn && btn.hidden);
     if (isAllDay(h)) showAllDayRows();   // 종일 칸에 적기 시작하면 아래에 빈 종일 칸이 하나 더 생김
     clearTimeout(schedTimer);
     schedTimer = setTimeout(flushSched, 700);
@@ -1463,14 +2019,49 @@
     schedPending.clear();
     Object.keys(byDate).forEach(function (d) {
       var patch = { sched: byDate[d] }, style = d === S.date && S.day && S.day.schedStyle, clear = {};
-      // 글자를 모두 지운 시간은 색·진하게도 지움 (나중에 새로 적는 일정에 남지 않도록)
+      // 글자를 모두 지운 칸은 색·진하게·테두리 색도 지움 (나중에 새로 적는 일정에 남지 않도록)
       if (style) Object.keys(byDate[d]).forEach(function (h) {
         var st = style[h];
-        if (!String(byDate[d][h]).trim() && st && (st.c || st.b)) clear[h] = { c: '', b: false };
+        if (!String(byDate[d][h]).trim() && st && (st.c || st.b || st.bc)) clear[h] = isAllDay(h) ? { c: '', b: false, bc: '' } : { c: '', b: false };
       });
       if (Object.keys(clear).length) patch.schedStyle = clear;
       S.store.setDay(d, patch);
     });
+  }
+  /* 여러 날 종일 일정의 글자: 적는 대로 저장. 모두 지운 채 칸을 떠나면 그 일정을 지움(되돌리기 가능) */
+  var spanPending = new Map(), spanTimer = null;
+  function onSpanInput(e) {
+    var id = e.target.dataset.span;
+    spanPending.set(id, e.target.value);
+    var row = e.target.closest('.sched-row'), show = !!e.target.value.trim(), k = 's:' + id;
+    $('.sty', row).hidden = !show && schedToolsH !== k;
+    $('.per', row).hidden = !show && rangeKey !== k;
+    row.classList.toggle('bare', $('.sty', row).hidden);
+    clearTimeout(spanTimer);
+    spanTimer = setTimeout(flushSpans, 700);
+  }
+  function flushSpans() {
+    clearTimeout(spanTimer);
+    if (!S.store || !spanPending.size) { spanPending.clear(); return; }
+    var now = Date.now();
+    spanPending.forEach(function (v, id) {
+      var sp = spanById(id);
+      if (!sp || !String(v).trim() || sp.t === v) return;   // 빈칸은 저장하지 않음 (칸을 떠날 때 지움)
+      sp.t = v;
+      spanEdit(id, { t: v, updated: now });
+    });
+    spanPending.clear();
+  }
+  function deleteSpan(id) {
+    var sp = spanById(id); if (!sp || !S.store) return;
+    var backup = { s: sp.s, e: sp.e, t: sp.t, c: sp.c, b: sp.b, bc: sp.bc, created: sp.created || Date.now(), updated: Date.now() };
+    spanPending.delete(id);
+    S.spans = S.spans.filter(function (v) { return v.id !== id; });   // 화면에 바로 반영
+    if (schedToolsH === 's:' + id) closeSchedTools();
+    if (rangeKey === 's:' + id) closeRange();
+    S.store.removeSpan(id);
+    renderSched(); renderMiniCal();
+    toast('종일 일정을 지웠습니다.', null, { label: '되돌리기', fn: function () { if (S.store) S.store.setSpan(id, backup); } });
   }
 
   var valuesTimer = null, valuesPending = {};
@@ -1502,7 +2093,7 @@
     closeDrawer();
     toast('백업 파일을 준비하는 중…');
     S.store.exportAll().then(function (data) {
-      var payload = { app: 'my-planner', version: 1, exportedAt: new Date().toISOString(), tasks: data.tasks, days: data.days, profile: data.profile };
+      var payload = { app: 'my-planner', version: 1, exportedAt: new Date().toISOString(), tasks: data.tasks, days: data.days, profile: data.profile, spans: data.spans || [] };
       var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1578,7 +2169,7 @@
     closeDrawer();
     if (!FBA) return;
     if (!window.confirm('로그아웃할까요? 다시 로그인하면 내용이 그대로 나타납니다.')) return;
-    flushNotes(); flushSched(); flushValues();
+    flushNotes(); flushSched(); flushSpans(); flushValues();
     FBA.FB.signOut(FBA.auth);
   }
 
@@ -1634,8 +2225,15 @@
 
     $('#schedList').addEventListener('input', onSchedInput);
     $('#schedList').addEventListener('focusout', function (e) {
+      var t = e.target;
       flushSched();
-      if (e.target.closest && e.target.closest('.ad-block')) {   // 종일 칸에서 손을 떼면 빈칸 정리
+      if ((t.id === 'adStart' || t.id === 'adEnd') && rangePending) flushRange(true);
+      if (t.dataset && t.dataset.span) {   // 여러 날 종일 일정: 글자를 모두 지운 채 떠나면 지움(되돌리기 가능)
+        var id = t.dataset.span;
+        if (!t.value.trim()) setTimeout(function () { if (document.activeElement !== t) deleteSpan(id); }, 0);
+        else flushSpans();
+      }
+      if (t.closest && t.closest('.ad-block')) {   // 종일 칸에서 손을 떼면 빈칸 정리
         var d = S.date;
         setTimeout(function () { compactAllDay(d); }, 0);
       }
@@ -1645,14 +2243,26 @@
       e.preventDefault();
       commitSchedRow(e.target.closest('.sched-row'));
     });
-    // 일정 글자 색 · 진하게
+    // 일정 글자 색 · 테두리 색 · 진하게, 종일 일정 기간
     $('#schedList').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
       if (b.classList.contains('sty')) { openSchedTools(b.dataset.sty); return; }
+      if (b.classList.contains('per')) { openRange(b.dataset.per); return; }
+      if (b.id === 'adOneDay') { flushRange(); var r = rangeKey && rangeOf(rangeKey); if (r) setRange(rangeKey, r.s, r.s); return; }
+      if (b.classList.contains('ar-close')) { flushRange(true); closeRange(); renderSched(); return; }
       if (!schedToolsH) return;
-      if (b.classList.contains('sw')) setSchedStyle(schedToolsH, { c: b.dataset.c || '' });
-      else if (b.id === 'schedBold') setSchedStyle(schedToolsH, { b: !styleOf(S.day && S.day.schedStyle, schedToolsH).b });
+      if (b.classList.contains('bsw')) setSchedStyle(schedToolsH, { bc: b.dataset.bc || '' });
+      else if (b.classList.contains('sw')) setSchedStyle(schedToolsH, { c: b.dataset.c || '' });
+      else if (b.id === 'schedBold') setSchedStyle(schedToolsH, { b: !styleOfKey(schedToolsH).b });
       else if (b.classList.contains('st-close')) closeSchedTools();
+    });
+    // 종일 일정 기간: 날짜 칸
+    $('#schedList').addEventListener('input', function (e) {
+      if (e.target.id === 'adStart') onRangeInput('start');
+      else if (e.target.id === 'adEnd') onRangeInput('end');
+    });
+    $('#schedList').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.target.id === 'adStart' || e.target.id === 'adEnd')) { e.preventDefault(); flushRange(true); }
     });
 
     // 메모 칸 (진하게)
@@ -1746,6 +2356,19 @@
       setDate(b.dataset.date);
       setTab('sched'); // 월간 달력은 일정을 보여 주므로, 휴대폰에서는 그날의 일정 화면을 엽니다
     });
+    // 요일 칸 색
+    $('#btnDow').addEventListener('click', function () { if (S.dowOpen) closeDow(); else openDow(); });
+    $('#dowBar').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.id === 'dowDone') { closeDow(); return; }
+      if (b.classList.contains('dws') && 'dow' in b.dataset) {
+        if (b.dataset.dow === S.dowColor) return;
+        chooseDow(b.dataset.dow);
+      }
+    });
+    // 직접 고르기: 고르는 동안은 화면에만 미리 보여 주고, 다 고르면 저장
+    $('#dowBar').addEventListener('input', function (e) { if (e.target.id === 'dowColorIn') applyDow(e.target.value); });
+    $('#dowBar').addEventListener('change', function (e) { if (e.target.id === 'dowColorIn') chooseDow(e.target.value); });
     // 날짜 바탕색 칠하기
     $('#btnPaint').addEventListener('click', function () { if (S.painting) closePaint(); else openPaint(); });
     $('#paintBar').addEventListener('click', function (e) {
@@ -1877,7 +2500,9 @@
         if (!$('#sheet').hidden) { closeSheet(); return; }
         if (!$('#drawer').hidden) { closeDrawer(); return; }
         if (schedToolsH) { closeSchedTools(); return; }
+        if (rangeKey) { flushRange(true); closeRange(); renderSched(); return; }
         if (S.painting) { closePaint(); return; }
+        if (S.dowOpen) { closeDow(); return; }
       }
       var ae = document.activeElement, tag = (ae && ae.tagName) || '';
       if (/INPUT|TEXTAREA|SELECT/.test(tag) || (ae && ae.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1902,11 +2527,11 @@
 
     // 앱을 다시 열었을 때 날짜가 바뀌었으면 오늘로
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') { flushNotes(); flushSched(); flushValues(); saveEditText(); return; }
+      if (document.visibilityState === 'hidden') { flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); saveEditText(); return; }
       if (S.followToday && S.date !== today() && S.store) setDate(today());
       else { renderSched(); renderPendingBanner(); }
     });
-    window.addEventListener('pagehide', function () { flushNotes(); flushSched(); flushValues(); });
+    window.addEventListener('pagehide', function () { flushNotes(); flushSched(); flushSpans(); flushValues(); });
   }
 
   function saveDeleg() {

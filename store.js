@@ -39,15 +39,40 @@
   }
   /* 일정 칸 이름: '06'~'22' = 시간, 'a1'~'a3' = 종일 일정 (v1.5부터) */
   var SCHED_KEY_RE = /^(\d{2}|a[1-3])$/;
-  /* 일정 글자 꾸미기: { c: 색 이름(빈칸 = 기본), b: 진하게 } */
+  /* 일정 글자 꾸미기: { c: 글자 색(빈칸 = 기본), b: 진하게, bc: 종일 일정 테두리 색(빈칸 = 기본, v1.6부터) } */
   var SCHED_COLORS = ['', 'red', 'orange', 'green', 'blue', 'purple', 'pink'];
+  var BORDER_COLORS = ['', 'red', 'orange', 'yellow', 'green', 'teal', 'sky', 'blue', 'navy', 'purple', 'pink', 'brown', 'gray', 'black'];
   function cleanStyle(v) {
     if (!v || typeof v !== 'object') return null;
-    return { c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true };
+    var out = { c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true };
+    if (typeof v.bc === 'string') out.bc = BORDER_COLORS.indexOf(v.bc) >= 0 ? v.bc : '';
+    return out;
   }
-  /* 월간 달력의 날짜 바탕색 (빈칸 = 색 없음) */
-  var DAY_BGS = ['red', 'orange', 'yellow', 'green', 'sky', 'blue', 'purple', 'pink', 'gray'];
+  /* 월간 달력의 날짜 바탕색 (빈칸 = 색 없음). 색마다 연하게(-l) · 보통 · 진하게(-d) 세 가지 (v1.6부터 36가지) */
+  var BG_HUES = ['red', 'orange', 'yellow', 'lime', 'green', 'teal', 'sky', 'blue', 'purple', 'pink', 'brown', 'gray'];
+  var DAY_BGS = [];
+  BG_HUES.forEach(function (h) { DAY_BGS.push(h + '-l', h, h + '-d'); });
   function cleanBg(v) { return DAY_BGS.indexOf(v) >= 0 ? v : ''; }
+  /* 여러 날 이어지는 종일 일정(v1.6부터): { s: 시작 날짜, e: 끝 날짜, t: 내용, c, b, bc, created, updated } */
+  var SPAN_MAX = 366;   // 기간은 최대 366일
+  function spanDays(s, e) {
+    var a = s.split('-'), b = e.split('-');
+    return Math.round((Date.UTC(+b[0], +b[1] - 1, +b[2]) - Date.UTC(+a[0], +a[1] - 1, +a[2])) / 86400000) + 1;
+  }
+  function cleanSpan(v) {
+    if (!v || typeof v !== 'object') return null;
+    var s = String(v.s || ''), e = String(v.e || ''), t = String(v.t == null ? '' : v.t).slice(0, 500);
+    if (!DATE_RE.test(s) || !t.trim()) return null;
+    if (!DATE_RE.test(e) || e < s || spanDays(s, e) > SPAN_MAX) e = s;
+    var out = {
+      s: s, e: e, t: t,
+      c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true,
+      bc: BORDER_COLORS.indexOf(v.bc) >= 0 ? v.bc : '',
+      created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
+    };
+    return out;
+  }
+  function spanId(v) { return String((v && v.id) || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
   function cleanDay(d) {
     var out = {};
     if (!d || typeof d !== 'object') return out;
@@ -96,6 +121,8 @@
     if (typeof p.fontAll === 'boolean') out.fontAll = p.fontAll;
     if (typeof p.theme === 'string') out.theme = p.theme.slice(0, 20);
     if (typeof p.themeColor === 'string' && /^(#[0-9A-Fa-f]{6})?$/.test(p.themeColor)) out.themeColor = p.themeColor;
+    /* 월간 달력 요일 칸 색 (v1.6부터): 빈칸 = 기본, 'theme' = 플래너 색, 'dk-…'/'lt-…' = 고른 색, '#RRGGBB' = 직접 고른 색 */
+    if (typeof p.dowColor === 'string' && /^(theme|(dk|lt)-[a-z]{2,10}|#[0-9A-Fa-f]{6})?$/.test(p.dowColor)) out.dowColor = p.dowColor;
     return out;
   }
 
@@ -104,29 +131,43 @@
     var self = this;
     this.kind = 'local';
     this.key = key || 'my-planner:local:v1';
+    this.spanKey = this.key + ':spans';   // 여러 날 종일 일정은 따로 저장 (예전 버전 앱이 저장해도 지워지지 않게)
     this.subs = [];
     this.onStatus = null;
     this.onError = null;
     this.data = this._load();
     this._queued = false;
     this._onStorage = function (e) {
-      if (e.key === self.key) { self.data = self._load(); self._changed(); }
+      if (e.key === self.key || e.key === self.spanKey) { self.data = self._load(); self._changed(); }
     };
     window.addEventListener('storage', this._onStorage);
   }
   LocalStore.prototype._load = function () {
+    var out = { tasks: {}, days: {}, profile: {}, spans: {} };
     try {
       var raw = localStorage.getItem(this.key);
       if (raw) {
         var d = JSON.parse(raw);
-        return { tasks: d.tasks || {}, days: d.days || {}, profile: d.profile || {} };
+        out = { tasks: d.tasks || {}, days: d.days || {}, profile: d.profile || {}, spans: {} };
       }
+      var rs = localStorage.getItem(this.spanKey);
+      if (rs) { var sp = JSON.parse(rs); if (sp && typeof sp === 'object') out.spans = sp; }
     } catch (e) { /* 저장소를 읽을 수 없으면 빈 상태로 시작 */ }
-    return { tasks: {}, days: {}, profile: {} };
+    return out;
   };
   LocalStore.prototype._save = function () {
-    try { localStorage.setItem(this.key, JSON.stringify(this.data)); }
+    try {
+      var main = { tasks: this.data.tasks, days: this.data.days, profile: this.data.profile };
+      localStorage.setItem(this.key, JSON.stringify(main));
+      if (Object.keys(this.data.spans || {}).length || localStorage.getItem(this.spanKey) !== null) {
+        localStorage.setItem(this.spanKey, JSON.stringify(this.data.spans || {}));
+      }
+    }
     catch (e) { if (this.onError) this.onError({ code: 'local-save-failed', message: String(e) }); }
+  };
+  LocalStore.prototype._spans = function () {
+    var sp = this.data.spans || {};
+    return Object.keys(sp).map(function (id) { var o = clone(sp[id]); o.id = id; return o; });
   };
   LocalStore.prototype._changed = function () {
     var self = this;
@@ -203,6 +244,31 @@
     var self = this;
     return this._sub(function () { cb(clone(self.data.profile || {})); });
   };
+  /* 여러 날 종일 일정 가운데 from~to 기간과 겹치는 것: [{ id, s, e, t, c, b, bc, ... }] */
+  LocalStore.prototype.watchSpans = function (from, to, cb) {
+    var self = this;
+    return this._sub(function () {
+      cb(self._spans().filter(function (v) { return v.e >= from && v.s <= to; }));
+    });
+  };
+  LocalStore.prototype.newSpanId = function () { return makeId(); };
+  LocalStore.prototype.setSpan = function (id, patch) {
+    if (!id) return;
+    var sp = this.data.spans || (this.data.spans = {});
+    sp[id] = Object.assign({}, sp[id] || {}, clone(patch));
+    this._save(); this._changed();
+  };
+  /* 고치기: 이미 있는 일정만 (다른 기기에서 지운 일정을 되살리지 않음) */
+  LocalStore.prototype.updateSpan = function (id, patch) {
+    if (!id || !this.data.spans || !this.data.spans[id]) return;
+    Object.assign(this.data.spans[id], clone(patch));
+    this._save(); this._changed();
+  };
+  LocalStore.prototype.removeSpan = function (id) {
+    if (!this.data.spans || !this.data.spans[id]) return;
+    delete this.data.spans[id];
+    this._save(); this._changed();
+  };
   LocalStore.prototype.newId = function () { return makeId(); };
   LocalStore.prototype.addTask = function (t) {
     var id = t.id || makeId();
@@ -252,6 +318,13 @@
       else if (op.type === 'profile') {
         self.data.profile = Object.assign({}, self.data.profile || {}, op.data);
       }
+      else if (op.type === 'span') {
+        var sp = self.data.spans || (self.data.spans = {});
+        sp[op.id] = Object.assign({}, sp[op.id] || {}, clone(op.data));
+      }
+      else if (op.type === 'unspan') {
+        if (self.data.spans) delete self.data.spans[op.id];
+      }
     });
     this._save(); this._changed();
   };
@@ -259,7 +332,8 @@
     return Promise.resolve({
       tasks: this._tasks().map(clone),
       days: clone(this.data.days),
-      profile: clone(this.data.profile)
+      profile: clone(this.data.profile),
+      spans: this._spans()
     });
   };
   LocalStore.prototype.importAll = function (data) {
@@ -286,6 +360,10 @@
     });
     var p = cleanProfile(data.profile);
     if (Object.keys(p).length) ops.push({ type: 'profile', data: p });
+    (Array.isArray(data.spans) ? data.spans : []).forEach(function (v) {
+      var c = cleanSpan(v), id = spanId(v);
+      if (c && id) ops.push({ type: 'span', id: id, data: c });
+    });
     return ops;
   }
 
@@ -296,6 +374,7 @@
     this.FB = FB; this.db = db; this.uid = uid;
     this.tasksCol = FB.collection(db, 'users', uid, 'tasks');
     this.daysCol = FB.collection(db, 'users', uid, 'days');
+    this.spansCol = FB.collection(db, 'users', uid, 'spans');   // 여러 날 종일 일정 (v1.6부터)
     this.profileRef = FB.doc(db, 'users', uid, 'meta', 'profile');
     this.meta = {};        // 리스너별 { pending, cache }
     this.unsubs = [];
@@ -427,6 +506,28 @@
       cb(snap.exists() ? snap.data() : {});
     });
   };
+  /* 여러 날 종일 일정: 끝 날짜(e)가 from 이후인 것만 서버에서 읽고(필드 하나 범위 → 따로 색인을 만들 필요 없음),
+     시작 날짜(s)가 to 이전인 것만 골라 냄 */
+  FirebaseStore.prototype.watchSpans = function (from, to, cb) {
+    var FB = this.FB;
+    return this._listen(FB.query(this.spansCol, FB.where('e', '>=', from)), function (snap) {
+      cb(docsOf(snap).filter(function (v) { return typeof v.s === 'string' && v.s <= to; }));
+    });
+  };
+  FirebaseStore.prototype.newSpanId = function () { return this.FB.doc(this.spansCol).id; };
+  FirebaseStore.prototype.setSpan = function (id, patch) {
+    if (!id) return;
+    this._track(this.FB.setDoc(this.FB.doc(this.spansCol, id), strip(patch), { merge: true }));
+  };
+  /* 고치기: 이미 있는 일정만 (다른 기기에서 그사이 지웠으면 조용히 넘어감 — 빈 일정이 새로 생기지 않게) */
+  FirebaseStore.prototype.updateSpan = function (id, patch) {
+    if (!id) return;
+    this._track(this.FB.updateDoc(this.FB.doc(this.spansCol, id), strip(patch)), ['not-found']);
+  };
+  FirebaseStore.prototype.removeSpan = function (id) {
+    if (!id) return;
+    this._track(this.FB.deleteDoc(this.FB.doc(this.spansCol, id)));
+  };
   FirebaseStore.prototype.newId = function () { return this.FB.doc(this.tasksCol).id; };
   function strip(t) {
     var o = {};
@@ -463,6 +564,8 @@
         else if (op.type === 'remove') { batch.delete(FB.doc(self.tasksCol, op.id)); n++; }
         else if (op.type === 'day') { batch.set(FB.doc(self.daysCol, op.date), op.data, { merge: true }); n++; }
         else if (op.type === 'profile') { batch.set(self.profileRef, op.data, { merge: true }); n++; }
+        else if (op.type === 'span') { batch.set(FB.doc(self.spansCol, op.id), strip(op.data), { merge: true }); n++; }
+        else if (op.type === 'unspan') { batch.delete(FB.doc(self.spansCol, op.id)); n++; }
       });
       if (n) this._track(batch.commit());
     }
@@ -474,16 +577,17 @@
       var days = {};
       r[1].docs.forEach(function (d) { days[d.id] = d.data(); });
       var prof = r[2] && r[2].exists() ? r[2].data() : {};
-      return { tasks: docsOf(r[0]), days: days, profile: prof, partial: partial };
+      return { tasks: docsOf(r[0]), days: days, profile: prof, spans: r[3] ? docsOf(r[3]) : [], partial: partial };
     }
     function fromCache() {
       return Promise.all([
         FB.getDocsFromCache(self.tasksCol),
         FB.getDocsFromCache(self.daysCol),
-        FB.getDocFromCache(self.profileRef).catch(function () { return null; })
+        FB.getDocFromCache(self.profileRef).catch(function () { return null; }),
+        FB.getDocsFromCache(self.spansCol).catch(function () { return null; })
       ]).then(function (r) { return build(r, true); });
     }
-    var server = Promise.all([FB.getDocs(this.tasksCol), FB.getDocs(this.daysCol), FB.getDoc(this.profileRef)]);
+    var server = Promise.all([FB.getDocs(this.tasksCol), FB.getDocs(this.daysCol), FB.getDoc(this.profileRef), FB.getDocs(this.spansCol)]);
     var timeout = new Promise(function (res) { timer = setTimeout(function () { res(null); }, 8000); });
     return Promise.race([server, timeout]).then(function (r) {
       clearTimeout(timer);
@@ -503,6 +607,6 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 15 = v1.5) */
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, v: 15 };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 16 = v1.6) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 16 };
 })();
