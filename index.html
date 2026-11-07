@@ -209,7 +209,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .sched-row .per{justify-self:center;height:30px;min-width:40px;padding:0 5px;border:1px solid var(--green-line);border-radius:8px;background:#fff;font-size:calc(12.5px * var(--fsu));font-weight:700;color:var(--green);white-space:nowrap;line-height:1}
 .sched-row .per:hover,.sched-row .per.open{background:var(--green);border-color:var(--green);color:#fff}
 /* 종일 일정의 '가' 둘레 = 월간 달력에서 쓰는 테두리 색 */
-.sched-row.ad .sty span{border:1.5px solid var(--bc,var(--ink-4));border-radius:4px;padding:0 3px;line-height:1.3}
+.sched-row.ad .sty span{border:var(--bw,2px) var(--bs,solid) var(--bc,var(--ink-4));border-radius:4px;padding:0 3px;line-height:1.3}
 .sched-row.ad.saved::after{right:90px}
 .sched-row.ad.bare input{grid-column:2 / -1}   /* 아직 비어 있는 종일 칸은 단추 자리까지 넓게 */
 /* 여러 날 종일 일정 줄: 내용 아래 줄에 기간 (예: 11.6(금) ~ 11.8(일) · 3일 중 2일째) */
@@ -227,6 +227,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .bsw i{background:#fff;box-shadow:inset 0 0 0 4px var(--c),0 0 0 1px rgba(0,0,0,.06)}
 .bsw.on i{box-shadow:inset 0 0 0 4px var(--c),0 0 0 2px #fff,0 0 0 4px var(--c)}
 .bsw.on i::after{color:var(--c)}
+/* 테두리 모양: 선 모양(실선·점선·긴 점선)과 굵기(보통·얇게). 미리 보기 선은 지금 고른 테두리 색으로 */
+.lsw-row{display:flex;flex-wrap:wrap;gap:6px 14px}
+.lsw-grp{display:inline-flex;gap:5px}
+.lsw{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:54px;min-height:44px;padding:6px 6px 5px;border:1px solid var(--line-2);border-radius:9px;background:#fff;font-size:calc(11.5px * var(--fsu));color:var(--ink-2)}
+.lsw i{display:block;width:34px;height:0;border-top:var(--lwcur,2px) var(--ls,solid) var(--lc,var(--green))}
+.lsw[data-bw] i{border-top-style:var(--lscur,solid)}
+.lsw[data-bw=""] i{border-top-width:2px} .lsw[data-bw="thin"] i{border-top-width:1px}
+.lsw:hover{border-color:var(--green-line)}
+.lsw.on{border-color:var(--green);background:var(--green-tint);color:var(--green);font-weight:700;box-shadow:0 0 0 1px var(--green)}
 /* 종일 일정 기간 창: [시작 날짜] / [끝 날짜] */
 .ad-range .ar-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;max-width:360px}
 .ad-range .ar-l{font-size:calc(13px * var(--fsu));font-weight:700;color:var(--ink-2);min-width:28px}
@@ -281,16 +290,21 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .month-head h2{margin:0;font-family:var(--serif);font-size:calc(22px * var(--fsu));color:var(--green);flex:1}
 .mgrid{display:grid;grid-template-columns:24px repeat(7,minmax(0,1fr));margin:10px 8px 8px;border-top:1px solid var(--line-2);border-left:1px solid var(--line-2)}
 /* 칸 안쪽 여백 · 날짜 줄 높이 · 종일 일정 띠 높이 (띠를 칸 위에 겹쳐 그릴 때 위치 계산에 씀) */
-.mgrid{--cpt:4px;--cpb:5px;--cpx:4px;--cgap:2px;--ctop:22px;--adb:1.5px;--adh:calc(var(--scfs) * var(--fs) * 1.45 + 2 * var(--adb))}
+.mgrid{--cpt:4px;--cpb:5px;--cpx:4px;--cgap:2px;--ctop:22px;--adb:1.5px;--adbt:.75px;--adh:calc(var(--scfs) * var(--fs) * 1.45 + 2 * var(--adb))}
 .mgrid .wkh,.mgrid .wkc{border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);background:var(--paper-2);color:var(--ink-3);text-align:center}
-.mgrid .wkh{padding:7px 0 0;font-size:calc(9.5px * var(--fsu));letter-spacing:-.04em;white-space:nowrap;overflow:hidden;background:var(--wdbg,var(--paper-2));color:var(--wdfg,var(--ink-3))}
+.mgrid .wkh{padding:7px 0 0;font-size:calc(9.5px * var(--fsu));letter-spacing:-.04em;white-space:nowrap;overflow:hidden;background:var(--wdbg,var(--paper-2));color:var(--wdfg,var(--ink-2))}
 .mgrid .wkc{padding:8px 0 0;font-family:var(--serif);font-weight:700;font-size:calc(12px * var(--fsu));line-height:1.1}
 .mgrid .wkc small{display:block;font-family:var(--sans);font-weight:400;font-size:calc(9.5px * var(--fsu));margin-top:2px}
 .mgrid .wkc.cur{color:var(--green);background:var(--green-tint)}
-.mgrid .wd{padding:6px 0;text-align:center;font-size:calc(12px * var(--fsu));color:var(--wdfg,var(--ink-3));border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);background:var(--wdbg,var(--paper-2))}
+.mgrid .wd{padding:6px 0;text-align:center;font-size:calc(12px * var(--fsu));color:var(--wdfg,var(--ink-2));border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);background:var(--wdbg,var(--paper-2))}
 .mgrid .wd.sun{color:var(--wdsun,var(--wine))} .mgrid .wd.sat{color:var(--wdsat,var(--slate))}
-/* 요일 칸 색을 골랐을 때 (글씨 색은 app.js가 바탕에 맞춰 정함) */
-.mgrid.dow-set .wd,.mgrid.dow-set .wkh{font-weight:700;border-right-color:var(--wdline);border-bottom-color:var(--wdline)}
+/* 요일 칸 색을 골랐을 때: 칸마다 따로 (색 변수는 app.js가 칸마다 넣음. 글씨 색은 바탕에 맞춰 저절로).
+   하나라도 골랐으면 요일 줄 글씨는 모두 굵게 (dow-set) */
+.mgrid.dow-set .wd,.mgrid.dow-set .wkh{font-weight:700}
+.mgrid .wd.set,.mgrid .wkh.set{border-right-color:var(--wdline);border-bottom-color:var(--wdline)}
+/* 요일 칸 색 막대를 연 동안: 요일 칸을 눌러 고를 수 있고, 지금 바꾸는 요일 칸에 테두리 */
+.mgrid.dow-pick .wd{cursor:pointer}
+.mgrid .wd.target{box-shadow:inset 0 0 0 2px currentColor}
 /* 칸 크기: --ch 칸 높이, --scfs 일정 글씨 크기 (data-size 1 작게 … 5 아주 크게) */
 .mgrid{--ch:104px;--scfs:11px}
 .mgrid[data-size="1"]{--ch:78px;--scfs:10.5px}
@@ -323,6 +337,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .mgrid .adbar{position:relative;z-index:2;display:block;align-self:start;min-width:0;height:var(--adh);overflow:hidden;pointer-events:none;
   margin:calc(var(--cpt) + var(--ctop) + var(--cgap) + var(--lane) * (var(--adh) + var(--cgap))) 1px 0 0}
 .mgrid .adbar::before{content:"";position:absolute;top:0;bottom:0;left:3px;right:3px;border:var(--adb) solid var(--bc,var(--green));border-radius:5px}
+/* 테두리 모양 (얇게 = 보통의 절반 · 점선 · 긴 점선). 이어지는 쪽 끝을 여는 규칙(.cl·.cr)은 이 아래에 둬야 함 */
+.mgrid .adbar.thin::before{border-width:var(--adbt)}
+.mgrid .adbar.dotted::before{border-style:dotted}
+.mgrid .adbar.dashed::before{border-style:dashed}
+/* 화면 배율이 1.5보다 작으면(좁게 띄운 PC 창 등) 1.5px와 0.75px가 둘 다 1화소로 그려져 '보통'과 '얇게'가 같아 보이므로 2px · 1px로 */
+@media (max-resolution:1.49dppx){ .mgrid{--adb:2px;--adbt:1px} }
 .mgrid .adbar.cl::before{left:0;border-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
 .mgrid .adbar.cr::before{right:0;border-right:0;border-top-right-radius:0;border-bottom-right-radius:0}
 .mgrid .adbar .t{position:relative;display:block;margin:var(--adb) 5px 0 8px;font-family:var(--content);font-size:calc(var(--scfs) * var(--fs));line-height:calc(var(--adh) - 2 * var(--adb));color:var(--tc,var(--ink));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -379,6 +399,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .dws.wide.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);font-weight:700}
 .dws.custom input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 #dowSwatches .pb-grid{margin-top:8px}
+.dow-tg{display:flex;align-items:center;gap:6px 10px;margin-top:8px}
+.dow-tg-l{font-size:calc(12px * var(--fsu));color:var(--ink-3);white-space:nowrap}
+.dow-tg-row{flex:1;min-width:0;max-width:440px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.dtg{height:32px;min-width:0;padding:0;border:1px solid rgba(0,0,0,.16);border-radius:8px;background:var(--b,#fff);color:var(--f,var(--ink));font:inherit;font-size:calc(13px * var(--fsu));font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;cursor:pointer;touch-action:manipulation}
+.dtg[data-t="all"]{background:#fff;color:var(--ink);border-color:var(--line-2)}
+.dtg.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--ink)}
+@media (max-width:479px){
+  .dow-tg{flex-wrap:wrap}
+  .dow-tg-l{flex-basis:100%}
+  .dow-tg-row{gap:5px}
+}
 @media (max-width:389px){
   .dws.wide{height:32px;padding:0 8px 0 5px;gap:5px;font-size:calc(12.5px * var(--fsu))}
   .dws.wide i{width:18px;height:18px}
@@ -604,7 +635,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   .mgrid[data-size="3"]{--ch:188px;--scfs:13px}
   .mgrid[data-size="4"]{--ch:232px;--scfs:13.5px}
   .mgrid[data-size="5"]{--ch:286px;--scfs:14px}
-  .mgrid{--cpt:6px;--cpb:6px;--cpx:6px;--cgap:3px;--adb:2px}   /* PC 화면은 테두리를 2px로 (1.5px는 화면에 따라 1px로 줄어 보임) */
+  .mgrid{--cpt:6px;--cpb:6px;--cpx:6px;--cgap:3px;--adb:2px;--adbt:1px}   /* PC 화면은 테두리를 2px로 (1.5px는 화면에 따라 1px로 줄어 보임), 얇게는 1px */
   .cell .scs{gap:3px}
   .cell .sc{padding:1px 2px}
   .mgrid[data-lines="1"] .cell .sc{text-overflow:ellipsis}
@@ -752,11 +783,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     </div>
     <div id="dowBar" class="paint-bar dow-bar" role="group" aria-label="요일 칸 색" hidden>
       <div class="pb-head"><b>요일 칸 색</b><span id="dowNow" class="pb-now" aria-live="polite"></span><button type="button" id="dowDone" class="btn small primary">완료</button></div>
+      <div id="dowTargets" class="dow-tg" role="group" aria-label="바꿀 칸"></div>
       <div id="dowSwatches"></div>
-      <p class="pb-tip">달력 맨 위 ‘일 월 화 …’ 줄의 색입니다. 글씨 색은 바탕에 맞춰 잘 보이게 저절로 바뀝니다.</p>
+      <p class="pb-tip">‘모두’는 일~토 전체, 요일 하나를 고르면 그 칸만 바뀝니다(달력의 요일 칸을 눌러도 고를 수 있습니다). 글씨 색은 바탕에 맞춰 잘 보이게 저절로 바뀝니다.</p>
     </div>
     <div id="mgrid" class="mgrid" data-size="2"></div>
-    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 나옵니다. 종일 일정은 맨 위에 <b>테두리만 있는 띠</b>로 나오고, 기간을 정한 종일 일정(예: 11월 6일 ~ 8일)은 그 날짜들에 이어진 띠로 나옵니다. 시간 일정은 그 아래에 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 칸에 다 들어가지 않으면 ‘+2’처럼 남은 개수가 보이며, 위의 <b>칸 크기 − +</b>로 칸을 키우거나 줄일 수 있습니다. <b>바탕색</b> 단추를 누르고 색을 고른 뒤 날짜를 누르면 그 날짜 칸이 색칠되고, <b>요일 색</b> 단추로 맨 위 요일 줄의 색을 바꿉니다. 일정 글자의 색·진하게와 종일 일정의 테두리 색은 하루 페이지 일정 칸 오른쪽의 ‘가’ 단추로, 종일 일정의 기간은 ‘기간’ 단추로 정합니다. 왼쪽 숫자는 올해의 주차이고, 일요일 칸 오른쪽 위의 작은 숫자는 음력 날짜입니다.</p>
+    <p class="month-legend">날짜 칸에는 그날 적은 <b style="color:var(--green)">일정</b>이 나옵니다. 종일 일정은 맨 위에 <b>테두리만 있는 띠</b>로 나오고, 기간을 정한 종일 일정(예: 11월 6일 ~ 8일)은 그 날짜들에 이어진 띠로 나옵니다. 시간 일정은 그 아래에 시간 순서로 나옵니다(할 일은 하루 페이지에서 봅니다). 날짜를 누르면 그날 일정이 열립니다. 칸에 다 들어가지 않으면 ‘+2’처럼 남은 개수가 보이며, 위의 <b>칸 크기 − +</b>로 칸을 키우거나 줄일 수 있습니다. <b>바탕색</b> 단추를 누르고 색을 고른 뒤 날짜를 누르면 그 날짜 칸이 색칠되고, <b>요일 색</b> 단추로 맨 위 요일 줄의 색을 바꿉니다(요일마다 따로도 됩니다). 일정 글자의 색·진하게와 종일 일정의 테두리 색·모양(점선·얇은 선)은 하루 페이지 일정 칸 오른쪽의 ‘가’ 단추로, 종일 일정의 기간은 ‘기간’ 단추로 정합니다. 왼쪽 숫자는 올해의 주차이고, 일요일 칸 오른쪽 위의 작은 숫자는 음력 날짜입니다.</p>
   </section>
 
   <!-- ===== 메모 모아보기 ===== -->
@@ -832,10 +864,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <p>일정 맨 위의 <b>종일</b> 칸에는 시간이 정해지지 않은 하루 종일 일정(휴가, 생일, 출장 등)을 적습니다. 하나를 적으면 아래에 빈 종일 칸이 하나 더 생겨, 하루에 3개까지 적을 수 있습니다.</p>
       <p><b>여러 날 이어지는 일정</b>(예: 11월 6일 ~ 11월 8일 출장)은 첫날 페이지의 종일 칸에 적은 뒤, 그 줄 오른쪽의 <b>기간</b> 단추를 누르고 <b>끝</b> 날짜를 고릅니다. 고르는 즉시 저장됩니다. 시작 날짜도 바꿀 수 있습니다. 기간을 정한 일정은 그 기간의 모든 날짜 페이지에 ‘11.6(금) ~ 11.8(일) · 3일 중 2일째’처럼 나오고, 어느 날짜에서든 내용·기간·색을 고칠 수 있습니다. 하루로 되돌리려면 기간 창의 <b>하루만</b>을 누릅니다. 기간은 최대 366일입니다.</p>
       <p>종일 일정을 지우려면 글자를 모두 지우면 됩니다. 기간을 정한 일정은 지운 직후 아래에 나오는 <b>되돌리기</b>로 다시 살릴 수 있습니다.</p>
-      <p>월간 달력에서는 종일 일정이 그날 칸 맨 위에 <b>테두리만 있는 띠</b>로 나옵니다(글자 둘레에 색을 칠하지 않음). 기간을 정한 일정은 그 날짜들에 이어진 한 줄의 띠로 나오고, 주가 바뀌면 다음 줄에서 이어집니다. 그 아래에 시간 일정이 나옵니다.</p>
-      <h3>일정 글자 색 · 진하게 · 테두리 색</h3>
+      <p>월간 달력에서는 종일 일정이 그날 칸 맨 위에 <b>테두리만 있는 띠</b>로 나옵니다(글자 둘레에 색을 칠하지 않음). 테두리의 색·모양·굵기는 ‘가’ 단추로 정합니다(아래 설명). 기간을 정한 일정은 그 날짜들에 이어진 한 줄의 띠로 나오고, 주가 바뀌면 다음 줄에서 이어집니다. 그 아래에 시간 일정이 나옵니다.</p>
+      <h3>일정 글자 색 · 진하게 · 테두리</h3>
       <p>일정을 적으면 그 줄 오른쪽에 <b>‘가’ 단추</b>가 생깁니다. 누르면 글자 색(기본·빨강·주황·초록·파랑·보라·분홍)과 <b>진하게</b>를 고르는 창이 열립니다. 예를 들어 중요한 일정은 빨강 + 진하게로 표시합니다. 고른 모양은 월간 달력에도 똑같이 나옵니다. 일정 글자를 모두 지우면 색과 진하게도 함께 지워집니다.</p>
       <p>종일 일정은 같은 창에서 <b>테두리 색</b>(14가지)도 고릅니다. 월간 달력의 띠를 두르는 선의 색입니다. ‘기본’으로 두면 글자 색과 같은 색으로, 글자 색도 기본이면 플래너 색으로 나옵니다. 종일 칸의 ‘가’ 둘레에 지금 고른 테두리 색이 보입니다.</p>
+      <p>그 아래 <b>테두리 모양</b>에서 선의 모양과 굵기를 고릅니다. 선 모양은 <b>실선</b>(기본)·<b>점선</b>(작은 점)·<b>긴 점선</b>(짧은 줄) 가운데 하나이고, 선 굵기는 <b>보통</b>(기본)과 <b>얇게</b>(더 가는 선) 가운데 하나입니다. 예를 들어 덜 중요한 일정은 ‘점선 + 얇게’로 두면 달력에서 가볍게 보입니다. 단추 안의 작은 선이 고른 모양을 미리 보여 주고, ‘가’ 둘레에도 같은 모양이 보입니다. 기간을 정한 일정은 어느 날짜에서 바꾸든 띠 전체에 함께 적용됩니다.</p>
       <h3>메모 진하게 · 메모 모아보기</h3>
       <p>메모에서 강조할 글자를 손가락이나 마우스로 고른 뒤 <b>B 진하게</b>를 누릅니다. 다시 누르면 보통 글씨로 돌아갑니다. PC에서는 <span class="kbd">Ctrl</span>+<span class="kbd">B</span>도 됩니다. 글자를 고르지 않고 누르면 이어서 쓰는 글자부터 진하게 써집니다.</p>
       <p>메뉴 → <b>메모 모아보기</b>(또는 메모 칸 위의 ‘메모 모아보기 ›’)에서 날마다 적은 메모를 최신 날짜부터 한꺼번에 봅니다. 검색 칸에 낱말을 적으면 그 낱말이 들어간 메모만 노란색 표시와 함께 나오고, 날짜를 누르면 그날 페이지가 열립니다.</p>
@@ -848,6 +881,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <p>예를 들어 휴가는 하늘색, 중요한 날은 빨강, 쉬는 날은 회색으로 칠하면 한 달을 한눈에 볼 수 있습니다. 칠한 색은 PC 하루 페이지의 작은 달력에도 나오고, 동기화를 설정했다면 PC와 휴대폰에 함께 나옵니다.</p>
       <h3>요일 칸 색 (월간 달력)</h3>
       <p>월간 달력 위의 <b>요일 색</b> 단추를 누르면, 맨 위 ‘일 월 화 수 목 금 토’ 줄의 색을 고르는 막대가 열립니다. 기본(종이색)·플래너 색·진한 색 12가지·연한 색 12가지 가운데 고르거나, ‘직접 고르기’로 원하는 색을 정합니다. 고르면 바로 바뀌고, 다 골랐으면 <b>완료</b>를 누릅니다.</p>
+      <p>막대의 <b>바꿀 칸</b>에서 <b>모두</b>를 고르면 일~토 전체가 같은 색으로 바뀌고, <b>일·월·화·수·목·금·토</b> 가운데 하나를 고르면 그 요일 칸만 바뀝니다. 막대를 연 채로 달력의 요일 칸을 눌러도 그 요일이 골라지고, 지금 바꾸는 칸에는 테두리가 보입니다. 예를 들어 ‘모두’를 연한 회색으로 한 뒤 일요일은 연한 빨강, 토요일은 연한 파랑으로 바꿀 수 있습니다. 요일 단추에는 그 요일의 지금 색이 보입니다. 처음처럼 되돌리려면 ‘모두’를 고르고 ‘기본’을 누릅니다.</p>
       <p>글씨 색은 바탕에 맞춰 잘 보이게 저절로 바뀝니다(진한 바탕은 흰 글씨). 일요일은 붉은 기, 토요일은 푸른 기가 도는 글씨로 구분됩니다. 동기화를 설정했다면 PC와 휴대폰에 함께 적용됩니다.</p>
       <h3>주차 · 음력</h3>
       <p>날짜 옆의 <b>‘45주차’</b>는 올해의 주차입니다. 1월 1일이 들어 있는 주가 1주차이고, 일요일부터 토요일까지(달력 한 줄)를 한 주로 셉니다. 엑셀의 WEEKNUM 함수와 같은 방식이라 연말에는 53주차가 나올 수 있습니다.</p>
@@ -892,7 +926,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
       <button id="btnImport"><span class="ic">↑</span>백업 파일 불러오기</button>
       <button id="btnLogout" hidden><span class="ic">⎋</span>로그아웃</button>
     </nav>
-    <div class="drawer-foot">나의 플래너 v1.6</div>
+    <div class="drawer-foot">나의 플래너 v1.7</div>
   </div>
 </aside>
 <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -992,7 +1026,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     setTimeout(function () { if (!window.__plannerBooted) fail(''); }, 8000);
     /* index.html만 새 버전이고 app.js가 예전 버전이면, 메모가 저장되지 않을 수 있으므로 쓰기 전에 막고 안내 */
     function versionCheck() {
-      if (window.__plannerApp === 'v1.6' || document.getElementById('versionGuard')) return;
+      if (window.__plannerApp === 'v1.7' || document.getElementById('versionGuard')) return;
       var app = document.getElementById('app'), login = document.getElementById('login');
       if (!(window.__plannerBooted || (app && !app.hidden) || (login && !login.hidden))) return;   // app.js가 아직 시작 전
       var o = document.createElement('div');

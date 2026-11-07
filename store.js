@@ -39,13 +39,16 @@
   }
   /* 일정 칸 이름: '06'~'22' = 시간, 'a1'~'a3' = 종일 일정 (v1.5부터) */
   var SCHED_KEY_RE = /^(\d{2}|a[1-3])$/;
-  /* 일정 글자 꾸미기: { c: 글자 색(빈칸 = 기본), b: 진하게, bc: 종일 일정 테두리 색(빈칸 = 기본, v1.6부터) } */
+  /* 일정 글자 꾸미기: { c: 글자 색(빈칸 = 기본), b: 진하게, bc: 종일 일정 테두리 색(빈칸 = 기본, v1.6부터),
+     bs: 테두리 선 모양('' 실선 · 'dotted' 점선 · 'dashed' 긴 점선), bw: 굵기('' 보통 · 'thin' 얇게) (v1.7부터) } */
   var SCHED_COLORS = ['', 'red', 'orange', 'green', 'blue', 'purple', 'pink'];
   var BORDER_COLORS = ['', 'red', 'orange', 'yellow', 'green', 'teal', 'sky', 'blue', 'navy', 'purple', 'pink', 'brown', 'gray', 'black'];
   function cleanStyle(v) {
     if (!v || typeof v !== 'object') return null;
     var out = { c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true };
     if (typeof v.bc === 'string') out.bc = BORDER_COLORS.indexOf(v.bc) >= 0 ? v.bc : '';
+    if (typeof v.bs === 'string') out.bs = v.bs === 'dotted' || v.bs === 'dashed' ? v.bs : '';
+    if (typeof v.bw === 'string') out.bw = v.bw === 'thin' ? 'thin' : '';
     return out;
   }
   /* 월간 달력의 날짜 바탕색 (빈칸 = 색 없음). 색마다 연하게(-l) · 보통 · 진하게(-d) 세 가지 (v1.6부터 36가지) */
@@ -68,6 +71,7 @@
       s: s, e: e, t: t,
       c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true,
       bc: BORDER_COLORS.indexOf(v.bc) >= 0 ? v.bc : '',
+      bs: v.bs === 'dotted' || v.bs === 'dashed' ? v.bs : '', bw: v.bw === 'thin' ? 'thin' : '',
       created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
     };
     return out;
@@ -111,6 +115,7 @@
     return entries.filter(function (e) { return typeof e.notes === 'string' && e.notes.trim(); })
       .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   }
+  var DOW_RE = /^(theme|(dk|lt)-[a-z]{2,10}|#[0-9A-Fa-f]{6})?$/;
   function cleanProfile(p) {
     var out = {};
     if (!p || typeof p !== 'object') return out;
@@ -122,7 +127,15 @@
     if (typeof p.theme === 'string') out.theme = p.theme.slice(0, 20);
     if (typeof p.themeColor === 'string' && /^(#[0-9A-Fa-f]{6})?$/.test(p.themeColor)) out.themeColor = p.themeColor;
     /* 월간 달력 요일 칸 색 (v1.6부터): 빈칸 = 기본, 'theme' = 플래너 색, 'dk-…'/'lt-…' = 고른 색, '#RRGGBB' = 직접 고른 색 */
-    if (typeof p.dowColor === 'string' && /^(theme|(dk|lt)-[a-z]{2,10}|#[0-9A-Fa-f]{6})?$/.test(p.dowColor)) out.dowColor = p.dowColor;
+    if (typeof p.dowColor === 'string' && DOW_RE.test(p.dowColor)) out.dowColor = p.dowColor;
+    /* 요일마다 따로 고른 색 (v1.7부터): { '0'(일) … '6'(토): 위와 같은 값, b: 그때의 '모두' 색 } */
+    if (p.dowEach && typeof p.dowEach === 'object') {
+      var e = {}, n = 0;
+      ['0', '1', '2', '3', '4', '5', '6', 'b'].forEach(function (k) {
+        if (typeof p.dowEach[k] === 'string' && DOW_RE.test(p.dowEach[k])) { e[k] = p.dowEach[k]; if (k !== 'b') n++; }
+      });
+      if (n) out.dowEach = e;
+    }
     return out;
   }
 
@@ -607,6 +620,6 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 16 = v1.6) */
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 16 };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 17 = v1.7) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 17 };
 })();
