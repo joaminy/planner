@@ -37,12 +37,17 @@
     if (t.bold === true) out.bold = true;
     return out;
   }
+  /* 일정 칸 이름: '06'~'22' = 시간, 'a1'~'a3' = 종일 일정 (v1.5부터) */
+  var SCHED_KEY_RE = /^(\d{2}|a[1-3])$/;
   /* 일정 글자 꾸미기: { c: 색 이름(빈칸 = 기본), b: 진하게 } */
   var SCHED_COLORS = ['', 'red', 'orange', 'green', 'blue', 'purple', 'pink'];
   function cleanStyle(v) {
     if (!v || typeof v !== 'object') return null;
     return { c: SCHED_COLORS.indexOf(v.c) >= 0 ? v.c : '', b: v.b === true };
   }
+  /* 월간 달력의 날짜 바탕색 (빈칸 = 색 없음) */
+  var DAY_BGS = ['red', 'orange', 'yellow', 'green', 'sky', 'blue', 'purple', 'pink', 'gray'];
+  function cleanBg(v) { return DAY_BGS.indexOf(v) >= 0 ? v : ''; }
   function cleanDay(d) {
     var out = {};
     if (!d || typeof d !== 'object') return out;
@@ -51,19 +56,20 @@
     if (d.sched && typeof d.sched === 'object') {
       out.sched = {};
       Object.keys(d.sched).forEach(function (h) {
-        if (/^\d{2}$/.test(h)) out.sched[h] = String(d.sched[h] == null ? '' : d.sched[h]).slice(0, 500);
+        if (SCHED_KEY_RE.test(h)) out.sched[h] = String(d.sched[h] == null ? '' : d.sched[h]).slice(0, 500);
       });
     }
     if (d.schedStyle && typeof d.schedStyle === 'object') {
       out.schedStyle = {};
       Object.keys(d.schedStyle).forEach(function (h) {
         var s = cleanStyle(d.schedStyle[h]);
-        if (/^\d{2}$/.test(h) && s) out.schedStyle[h] = s;
+        if (SCHED_KEY_RE.test(h) && s) out.schedStyle[h] = s;
       });
     }
+    if (typeof d.bg === 'string') out.bg = cleanBg(d.bg);
     return out;
   }
-  /* 하루 문서에 변경 내용 합치기 (일정·글자 꾸미기는 시간별로 합치고, 메모는 통째로 바꿈) */
+  /* 하루 문서에 변경 내용 합치기 (일정·글자 꾸미기는 시간별로 합치고, 메모·바탕색은 통째로 바꿈) */
   function mergeDay(d, patch) {
     ['sched', 'schedStyle'].forEach(function (k) {
       if (patch[k] && typeof patch[k] === 'object') d[k] = Object.assign({}, d[k] || {}, clone(patch[k]));
@@ -71,6 +77,9 @@
     ['notes', 'notesHtml'].forEach(function (k) {
       if (Object.prototype.hasOwnProperty.call(patch, k)) d[k] = patch[k];
     });
+    if (Object.prototype.hasOwnProperty.call(patch, 'bg')) {
+      if (cleanBg(patch.bg)) d.bg = patch.bg; else delete d.bg;
+    }
   }
   /* 메모가 있는 날만 골라 최신 날짜부터 */
   function memoList(entries) {
@@ -163,18 +172,20 @@
       cb(self._tasks().filter(function (t) { return t.date >= from && t.date <= to; }).map(clone));
     });
   };
-  /* 한 달 치 일정: { '2026-11-05': { '09': '회의', ... }, ... }
-     두 번째 값은 글자 꾸미기: { '2026-11-05': { '09': { c: 'red', b: true } } } */
+  /* 한 달 치 일정: { '2026-11-05': { 'a1': '휴가', '09': '회의', ... }, ... }  ('a1'~'a3'은 종일 일정)
+     두 번째 값은 글자 꾸미기: { '2026-11-05': { '09': { c: 'red', b: true } } }
+     세 번째 값은 날짜 바탕색: { '2026-11-05': 'yellow' } */
   LocalStore.prototype.watchSchedRange = function (from, to, cb) {
     var self = this;
     return this._sub(function () {
-      var days = self.data.days || {}, out = {}, style = {};
+      var days = self.data.days || {}, out = {}, style = {}, bg = {};
       Object.keys(days).forEach(function (date) {
         if (date < from || date > to || !days[date]) return;
         if (days[date].sched) out[date] = clone(days[date].sched);
         if (days[date].schedStyle) style[date] = clone(days[date].schedStyle);
+        if (cleanBg(days[date].bg)) bg[date] = days[date].bg;
       });
-      cb(out, style);
+      cb(out, style, bg);
     });
   };
   /* 메모 모아보기: [{ date, notes, notesHtml }, ...] 최신 날짜부터 */
@@ -391,13 +402,14 @@
     }
     var q = FB.query(this.daysCol, FB.where(FB.documentId(), '>=', from), FB.where(FB.documentId(), '<=', to));
     return this._listen(q, function (snap) {
-      var out = {}, style = {};
+      var out = {}, style = {}, bg = {};
       snap.docs.forEach(function (d) {
         var v = d.data();
         if (v && v.sched) out[d.id] = v.sched;
         if (v && v.schedStyle) style[d.id] = v.schedStyle;
+        if (v && cleanBg(v.bg)) bg[d.id] = v.bg;
       });
-      cb(out, style);
+      cb(out, style, bg);
     });
   };
   /* 메모 모아보기: 메모 칸이 비어 있지 않은 날만 읽음 */
@@ -491,5 +503,6 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 15 = v1.5) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, v: 15 };
 })();
