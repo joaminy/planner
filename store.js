@@ -51,12 +51,24 @@
     if (typeof v.bw === 'string') out.bw = v.bw === 'thin' ? 'thin' : '';
     return out;
   }
+  /* 일정 정보 (v1.8부터): { ts: 시작 시각 'HH:MM', te: 끝 시각, loc: 장소, memo: 메모 } (빈칸 = 없음) */
+  var TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  function cleanTime(v) { return typeof v === 'string' && TIME_RE.test(v) ? v : ''; }
+  function cleanInfo(v) {
+    if (!v || typeof v !== 'object') return null;
+    return {
+      ts: cleanTime(v.ts), te: cleanTime(v.te),
+      loc: typeof v.loc === 'string' ? v.loc.slice(0, 100) : '',
+      memo: typeof v.memo === 'string' ? v.memo.slice(0, 2000) : ''
+    };
+  }
   /* 월간 달력의 날짜 바탕색 (빈칸 = 색 없음). 색마다 연하게(-l) · 보통 · 진하게(-d) 세 가지 (v1.6부터 36가지) */
   var BG_HUES = ['red', 'orange', 'yellow', 'lime', 'green', 'teal', 'sky', 'blue', 'purple', 'pink', 'brown', 'gray'];
   var DAY_BGS = [];
   BG_HUES.forEach(function (h) { DAY_BGS.push(h + '-l', h, h + '-d'); });
   function cleanBg(v) { return DAY_BGS.indexOf(v) >= 0 ? v : ''; }
-  /* 여러 날 이어지는 종일 일정(v1.6부터): { s: 시작 날짜, e: 끝 날짜, t: 내용, c, b, bc, created, updated } */
+  /* 여러 날 이어지는 종일 일정(v1.6부터): { s: 시작 날짜, e: 끝 날짜, t: 내용, c, b, bc, created, updated }
+     (v1.8부터 일정 정보 ts · te · loc · memo도 같은 문서에) */
   var SPAN_MAX = 366;   // 기간은 최대 366일
   function spanDays(s, e) {
     var a = s.split('-'), b = e.split('-');
@@ -74,6 +86,8 @@
       bs: v.bs === 'dotted' || v.bs === 'dashed' ? v.bs : '', bw: v.bw === 'thin' ? 'thin' : '',
       created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
     };
+    var inf = cleanInfo(v);
+    if (inf.ts || inf.te || inf.loc || inf.memo) { out.ts = inf.ts; out.te = inf.te; out.loc = inf.loc; out.memo = inf.memo; }
     return out;
   }
   function spanId(v) { return String((v && v.id) || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
@@ -95,12 +109,19 @@
         if (SCHED_KEY_RE.test(h) && s) out.schedStyle[h] = s;
       });
     }
+    if (d.schedInfo && typeof d.schedInfo === 'object') {
+      out.schedInfo = {};
+      Object.keys(d.schedInfo).forEach(function (h) {
+        var v = cleanInfo(d.schedInfo[h]);
+        if (SCHED_KEY_RE.test(h) && v) out.schedInfo[h] = v;
+      });
+    }
     if (typeof d.bg === 'string') out.bg = cleanBg(d.bg);
     return out;
   }
-  /* 하루 문서에 변경 내용 합치기 (일정·글자 꾸미기는 시간별로 합치고, 메모·바탕색은 통째로 바꿈) */
+  /* 하루 문서에 변경 내용 합치기 (일정·글자 꾸미기·일정 정보는 시간별로 합치고, 메모·바탕색은 통째로 바꿈) */
   function mergeDay(d, patch) {
-    ['sched', 'schedStyle'].forEach(function (k) {
+    ['sched', 'schedStyle', 'schedInfo'].forEach(function (k) {
       if (patch[k] && typeof patch[k] === 'object') d[k] = Object.assign({}, d[k] || {}, clone(patch[k]));
     });
     ['notes', 'notesHtml'].forEach(function (k) {
@@ -228,18 +249,20 @@
   };
   /* 한 달 치 일정: { '2026-11-05': { 'a1': '휴가', '09': '회의', ... }, ... }  ('a1'~'a3'은 종일 일정)
      두 번째 값은 글자 꾸미기: { '2026-11-05': { '09': { c: 'red', b: true } } }
-     세 번째 값은 날짜 바탕색: { '2026-11-05': 'yellow' } */
+     세 번째 값은 날짜 바탕색: { '2026-11-05': 'yellow' }
+     네 번째 값은 일정 정보(v1.8부터): { '2026-11-05': { '09': { ts: '09:30', te: '', loc: '본사', memo: '' } } } */
   LocalStore.prototype.watchSchedRange = function (from, to, cb) {
     var self = this;
     return this._sub(function () {
-      var days = self.data.days || {}, out = {}, style = {}, bg = {};
+      var days = self.data.days || {}, out = {}, style = {}, bg = {}, info = {};
       Object.keys(days).forEach(function (date) {
         if (date < from || date > to || !days[date]) return;
         if (days[date].sched) out[date] = clone(days[date].sched);
         if (days[date].schedStyle) style[date] = clone(days[date].schedStyle);
         if (cleanBg(days[date].bg)) bg[date] = days[date].bg;
+        if (days[date].schedInfo) info[date] = clone(days[date].schedInfo);
       });
-      cb(out, style, bg);
+      cb(out, style, bg, info);
     });
   };
   /* 메모 모아보기: [{ date, notes, notesHtml }, ...] 최신 날짜부터 */
@@ -494,14 +517,15 @@
     }
     var q = FB.query(this.daysCol, FB.where(FB.documentId(), '>=', from), FB.where(FB.documentId(), '<=', to));
     return this._listen(q, function (snap) {
-      var out = {}, style = {}, bg = {};
+      var out = {}, style = {}, bg = {}, info = {};
       snap.docs.forEach(function (d) {
         var v = d.data();
         if (v && v.sched) out[d.id] = v.sched;
         if (v && v.schedStyle) style[d.id] = v.schedStyle;
         if (v && cleanBg(v.bg)) bg[d.id] = v.bg;
+        if (v && v.schedInfo) info[d.id] = v.schedInfo;
       });
-      cb(out, style, bg);
+      cb(out, style, bg, info);
     });
   };
   /* 메모 모아보기: 메모 칸이 비어 있지 않은 날만 읽음 */
@@ -620,6 +644,6 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 17 = v1.7) */
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 17 };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 18 = v1.8) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 18 };
 })();
