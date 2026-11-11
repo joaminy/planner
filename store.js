@@ -23,7 +23,7 @@
       id: String(t.id || makeId()).replace(/[\/\s]/g, '').slice(0, 60) || makeId(),
       date: String(t.date),
       pri: ['A', 'B', 'C'].indexOf(t.pri) >= 0 ? t.pri : 'B',
-      ord: Number(t.ord) || Date.now(),
+      ord: typeof t.ord === 'number' && isFinite(t.ord) ? t.ord : (Number(t.ord) || Date.now()),   // 0·음수(맨 위)도 그대로
       text: String(t.text == null ? '' : t.text).slice(0, 2000),
       status: STATUSES.indexOf(t.status) >= 0 ? t.status : 'open',
       created: Number(t.created) || Date.now(),
@@ -35,6 +35,9 @@
     if (t.fwdFrom && DATE_RE.test(t.fwdFrom)) out.fwdFrom = t.fwdFrom;
     if (t.fwdCount) out.fwdCount = Number(t.fwdCount) || 0;
     if (t.bold === true) out.bold = true;
+    // v1.9부터: 완료하기 전 자리(완료를 풀면 돌아갈 곳) · 진행 중으로 바꿔 맨 위로 옮긴 시각
+    if (typeof t.ordPrev === 'number' && isFinite(t.ordPrev)) out.ordPrev = t.ordPrev;
+    if (Number(t.progAt) > 0) out.progAt = Number(t.progAt);
     return out;
   }
   /* 일정 칸 이름: '06'~'22' = 시간, 'a1'~'a3' = 종일 일정 (v1.5부터) */
@@ -644,6 +647,6 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 18 = v1.8) */
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 18 };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 19 };
 })();

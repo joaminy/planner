@@ -414,7 +414,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.8';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.9';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -578,10 +578,10 @@
     subscribeSched(S.view === 'month' ? S.monthCursor : monthKey(S.date));
   }
 
-  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8) */
+  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9) */
   function storeV() { var P = window.PlannerStores; return (P && +P.v) || 0; }
-  /* store.js가 이 app.js와 같은 v1.8 파일인지 (일정 정보는 v1.8 store.js부터 저장됨) */
-  function storeIsCurrent() { return storeV() >= 18; }
+  /* store.js가 이 app.js와 같은 v1.9 파일인지 (v1.9 store.js는 백업을 불러올 때 할 일 순서 표시까지 지킴) */
+  function storeIsCurrent() { return storeV() >= 19; }
   /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
   function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
 
@@ -608,6 +608,7 @@
       renderTasks(); renderSched(); renderNotes(false);
       if (S.editId) renderSheet();
       if (S.info) renderInfo(false);
+      migrateLegacyProg();   // v1.8에서 진행 중으로 바꾼 일: 한 번만 맨 위로
     });
   }
 
@@ -753,16 +754,69 @@
     if (m) card.innerHTML = '<span class="lbl">나의 사명</span>' + esc(m);
   }
 
-  /* 순서: A → B → C, 같은 글자 안에서는 진행 중(●)인 일이 저절로 맨 위(v1.8부터), 그다음 정해 둔 순서 */
-  function progFirst(t) { return t.status === 'prog' ? 0 : 1; }
+  /* 순서: A → B → C, 같은 글자 안에서는 정해 둔 순서(ord). 완료(✓)한 일은 같은 글자 안에서 늘 맨 아래 (v1.9부터)
+     진행 중(●)으로 바꾸면 그때 한 번 맨 위로 옮기고(statusPatch), 그 뒤에는 ▲▼로 옮긴 순서를 그대로 지킴 */
+  function doneLast(t) { return t.status === 'done' ? 1 : 0; }
   function sortTasks(list) {
     return list.slice().sort(function (a, b) {
-      return (PRI_ORDER[a.pri] - PRI_ORDER[b.pri]) || (progFirst(a) - progFirst(b)) || ((a.ord || 0) - (b.ord || 0)) || ((a.created || 0) - (b.created || 0));
+      return (PRI_ORDER[a.pri] - PRI_ORDER[b.pri]) || (doneLast(a) - doneLast(b)) || ((a.ord || 0) - (b.ord || 0)) || ((a.created || 0) - (b.created || 0));
     });
   }
-  /* ▲▼로 순서를 바꿀 수 있는 무리: 같은 글자이면서 진행 중끼리 / 나머지끼리 */
+  /* ▲▼로 순서를 바꿀 수 있는 무리: 같은 글자이면서 완료하지 않은 일끼리 / 완료한 일끼리 */
   function moveGroup(sorted, t) {
-    return sorted.filter(function (x) { return x.pri === t.pri && progFirst(x) === progFirst(t); });
+    return sorted.filter(function (x) { return x.pri === t.pri && doneLast(x) === doneLast(t); });
+  }
+  /* 같은 글자에서 맨 위가 되는 순서 값 (완료하지 않은 일 가운데 맨 앞보다 앞).
+     그날 할 일 목록을 불러온 날짜면 실제 목록으로 계산하고, 아니면 지금 시각을 음수로 써서 맨 위에 둠 */
+  function topOrd(t, pri) {
+    pri = pri || t.pri;
+    if (t.date !== S.date) return -Date.now();
+    var min = null;
+    S.tasks.forEach(function (x) {
+      if (x.id === t.id || x.pri !== pri || x.status === 'done') return;
+      var o = x.ord || 0;
+      if (min === null || o < min) min = o;
+    });
+    var own = typeof t.ord === 'number' && pri === t.pri ? t.ord : null;
+    if (min === null) return own === null ? -Date.now() : own;
+    return own !== null && own < min ? own : min - 1;
+  }
+  /* 상태를 바꿀 때 순서도 함께 바꿈 (v1.9부터)
+     · 진행 중(●)으로: 같은 글자 안에서 맨 위로 (그 뒤에는 ▲▼로 마음대로 옮길 수 있음)
+     · 완료(✓)로: 같은 글자 안에서 맨 아래로. 원래 자리(ordPrev)는 기억해 두었다가 완료를 풀면 그 자리로 돌아감 */
+  function statusPatch(t, st) {
+    var from = t.status || 'open', p = {};
+    if (st === from) return p;
+    if (st === 'prog') { p.ord = topOrd(t); p.progAt = Date.now(); }
+    else if (from === 'prog') p.progAt = null;
+    if (st === 'done') {
+      p.ordPrev = typeof t.ord === 'number' ? t.ord : 0;
+      p.ord = Date.now();
+    } else if (from === 'done') {
+      if (st !== 'prog' && typeof t.ordPrev === 'number') p.ord = t.ordPrev;
+      p.ordPrev = null;
+    }
+    return p;
+  }
+  /* v1.8에서 진행 중으로 바꾼 일(그때는 늘 맨 위에 보였음)은 한 번만 맨 위로 옮기고 표시해 둠.
+     그 뒤로는 ▲▼로 옮긴 순서를 그대로 지킴 (다른 기기에서 같이 고쳐도 결과가 같음) */
+  var progFixing = {};
+  /* 예전 버전(v1.8 이하)에서 진행 중으로 바꾸고 아직 맨 위로 옮겨 두지 않은 일 */
+  function legacyProg(t) { return t.status === 'prog' && !t.progAt ? 1 : 0; }
+  function migrateLegacyProg() {
+    if (!S.store || !S.dayLoaded) return;
+    var ops = [], now = Date.now();
+    Object.keys(PRI_ORDER).forEach(function (p) {
+      var group = sortTasks(S.tasks.filter(function (x) { return x.pri === p && x.status !== 'done'; }));
+      var legacy = group.filter(function (x) { return legacyProg(x) && !progFixing[x.id]; });
+      if (!legacy.length) return;
+      var min = group[0].ord || 0;
+      legacy.forEach(function (x, k) {
+        progFixing[x.id] = true;
+        ops.push({ type: 'update', id: x.id, patch: { ord: min - (legacy.length - k), progAt: now } });
+      });
+    });
+    if (ops.length) S.store.commit(ops);
   }
   function labelMap(sorted) {
     var c = { A: 0, B: 0, C: 0 }, m = {};
@@ -1664,11 +1718,9 @@
     applyDowVars();
   }
 
-  /* 일정 한 개가 칸에서 차지할 줄 수: 휴대폰은 칸이 좁아 '보통'까지는 한 줄(더 많은 일정이 보임) */
-  function cellLines() {
-    var wide = !!(mqWide && mqWide.matches);
-    return (wide ? [1, 2, 2, 3, 3] : [1, 1, 2, 2, 3])[S.cellSize - 1];
-  }
+  /* 일정 한 개가 칸에서 차지할 줄 수: 칸 크기와 상관없이 늘 한 줄 (내용이 길면 다음 줄로 넘기지 않고 잘라서 보임, v1.9부터).
+     칸을 키우면 그만큼 일정이 더 많이 보임. 전체 내용은 일정을 누르면 정보 창에서 보임 */
+  function cellLines() { return 1; }
 
   /* 칸에 다 들어가지 않는 일정은 숨기고 '+N'으로 (칸 크기·글꼴·화면 너비에 맞춰 계산)
      종일 일정 띠도 칸 높이에 들어가는 줄 수까지만 보이고, 나머지는 '+N'에 더함 */
@@ -1740,7 +1792,9 @@
   function renderPendingView() {
     var t0 = today();
     var list = S.pending.filter(function (t) { return t.date < t0; })
-      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (PRI_ORDER[a.pri] - PRI_ORDER[b.pri]) || (progFirst(a) - progFirst(b)) || ((a.ord || 0) - (b.ord || 0)); });
+      .sort(function (a, b) {   // 날짜별로, 그날 페이지와 같은 순서 (예전 버전에서 진행 중으로 바꾼 일은 그날 페이지를 열면 맨 위로 옮겨지므로 여기서도 위에)
+        return a.date < b.date ? -1 : a.date > b.date ? 1 : (PRI_ORDER[a.pri] - PRI_ORDER[b.pri]) || (legacyProg(b) - legacyProg(a)) || ((a.ord || 0) - (b.ord || 0));
+      });
     $('#btnPullAll2').hidden = !list.length;
     if (!list.length) { $('#pendList').innerHTML = '<div class="pend-empty">미처리 할 일이 없습니다. 잘 정리하고 계십니다.</div>'; return; }
     var html = '', cur = '';
@@ -1991,12 +2045,12 @@
     return null;
   }
 
+  /* 동그라미 단추: 미완료 → 완료, 완료 → 미완료, 진행 중 → 완료 (그 밖의 상태는 편집 화면) */
   function toggle(id) {
     var t = findTask(id); if (!t) return;
-    var now = Date.now();
-    if (t.status === 'open' || !t.status) S.store.updateTask(id, { status: 'done', updated: now });
-    else if (t.status === 'done' || t.status === 'prog') S.store.updateTask(id, { status: t.status === 'done' ? 'open' : 'done', updated: now });
-    else openSheet(id);
+    var from = t.status || 'open', st = from === 'open' || from === 'prog' ? 'done' : from === 'done' ? 'open' : null;
+    if (!st) { openSheet(id); return; }
+    S.store.updateTask(id, Object.assign(statusPatch(t, st), { status: st, updated: Date.now() }));
   }
 
   /* 넘긴 일을 되돌릴 때: 아직 손대지 않은 사본은 지움 */
@@ -2014,7 +2068,7 @@
   function setStatus(id, st, extra) {
     var t = findTask(id); if (!t) return;
     var ops = t.status === 'fwd' ? unforwardOps(t) : [];
-    var patch = { status: st, updated: Date.now() };
+    var patch = Object.assign(statusPatch(t, st), { status: st, updated: Date.now() });
     if (st !== 'deleg') patch.who = null;
     if (extra) Object.keys(extra).forEach(function (k) { patch[k] = extra[k]; });
     ops.push({ type: 'update', id: id, patch: patch });
@@ -2025,15 +2079,17 @@
     if (!toDate || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) { toast('날짜를 고르십시오.'); return false; }
     if (toDate === t.date) { toast('같은 날짜로는 넘길 수 없습니다.'); return false; }
     var ops = t.status === 'fwd' ? unforwardOps(t) : [];
-    var now = Date.now(), id = S.store.newId();
-    // 넘긴 날에는 내용만 그대로 옮겨 적음 (어느 날에서 넘어왔는지·몇 번째인지는 남기지 않음, v1.8부터)
+    var now = Date.now(), id = S.store.newId(), prog = t.status === 'prog';
+    // 넘긴 날에는 내용만 그대로 옮겨 적음 (어느 날에서 넘어왔는지·몇 번째인지는 남기지 않음, v1.8부터).
+    // 진행 중인 일은 넘긴 날에서도 같은 글자의 맨 위, 나머지는 그 글자의 끝(완료한 일 위)
     var copy = {
-      id: id, date: toDate, pri: t.pri, ord: now, text: t.text,
-      status: t.status === 'prog' ? 'prog' : 'open', created: now, updated: now
+      id: id, date: toDate, pri: t.pri, ord: prog ? -now : now, text: t.text,
+      status: prog ? 'prog' : 'open', created: now, updated: now
     };
+    if (prog) copy.progAt = now;
     if (t.bold) copy.bold = true;   // 진하게 표시도 그대로 넘김
     ops.push({ type: 'set', task: copy });
-    ops.push({ type: 'update', id: t.id, patch: { status: 'fwd', fwdTo: toDate, fwdId: id, who: null, updated: now } });
+    ops.push({ type: 'update', id: t.id, patch: Object.assign(statusPatch(t, 'fwd'), { status: 'fwd', fwdTo: toDate, fwdId: id, who: null, updated: now }) });
     S.store.commit(ops);
     toast(md(toDate) + '로 넘겼습니다.');
     return true;
@@ -2045,14 +2101,15 @@
     if (!list.length) return;
     var now = Date.now(), ops = [];
     list.forEach(function (t, i) {
-      var id = S.store.newId();
+      var id = S.store.newId(), prog = t.status === 'prog';
       var copy = {
-        id: id, date: t0, pri: t.pri, ord: now + i, text: t.text,
-        status: t.status === 'prog' ? 'prog' : 'open', created: now, updated: now
+        id: id, date: t0, pri: t.pri, ord: prog ? -now + i : now + i, text: t.text,   // 진행 중인 일은 오늘 목록에서도 맨 위
+        status: prog ? 'prog' : 'open', created: now, updated: now
       };
+      if (prog) copy.progAt = now;
       if (t.bold) copy.bold = true;
       ops.push({ type: 'set', task: copy });
-      ops.push({ type: 'update', id: t.id, patch: { status: 'fwd', fwdTo: t0, fwdId: id, updated: now } });
+      ops.push({ type: 'update', id: t.id, patch: Object.assign(statusPatch(t, 'fwd'), { status: 'fwd', fwdTo: t0, fwdId: id, updated: now }) });
     });
     S.store.commit(ops);
     if (S.view !== 'day' || S.date !== t0) setDate(t0);
@@ -2061,7 +2118,7 @@
 
   function moveTask(id, dir) {
     var t = findTask(id); if (!t) return;
-    var group = moveGroup(sortTasks(S.tasks), t);   // 진행 중인 일은 늘 맨 위라서, 진행 중끼리·나머지끼리만 바꿈
+    var group = moveGroup(sortTasks(S.tasks), t);   // 진행 중인 일도 마음대로 옮김. 완료한 일은 늘 맨 아래라서 완료한 일끼리만
     var i = -1, k;
     for (k = 0; k < group.length; k++) if (group[k].id === id) i = k;
     var j = i + dir;
@@ -2972,7 +3029,11 @@
     $('#editPri').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-pri]'); var t = findTask(S.editId);
       if (!b || !t || b.dataset.pri === t.pri) return;
-      S.store.updateTask(t.id, { pri: b.dataset.pri, ord: Date.now(), updated: Date.now() });
+      // 글자를 바꾸면 그 글자의 끝으로. 진행 중인 일은 그 글자의 맨 위로
+      var patch = { pri: b.dataset.pri, ord: Date.now(), updated: Date.now() };
+      if (t.status === 'prog') { patch.ord = topOrd(t, b.dataset.pri); patch.progAt = Date.now(); }
+      if (t.status === 'done') patch.ordPrev = null;
+      S.store.updateTask(t.id, patch);
     });
     $('#btnUp').addEventListener('click', function () { moveTask(S.editId, -1); });
     $('#btnDown').addEventListener('click', function () { moveTask(S.editId, 1); });
