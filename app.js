@@ -414,7 +414,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.9';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.10';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -580,7 +580,7 @@
 
   /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9) */
   function storeV() { var P = window.PlannerStores; return (P && +P.v) || 0; }
-  /* store.js가 이 app.js와 같은 v1.9 파일인지 (v1.9 store.js는 백업을 불러올 때 할 일 순서 표시까지 지킴) */
+  /* store.js가 v1.9 이상인지 (v1.9 store.js는 백업을 불러올 때 할 일 순서 표시까지 지킴. v1.10은 store.js를 바꾸지 않음) */
   function storeIsCurrent() { return storeV() >= 19; }
   /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
   function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
@@ -604,7 +604,9 @@
     renderTasks(); renderSched(); renderNotes(true);
     S.unsub.day = S.store.watchDay(date, function (r) {
       if (date !== S.date) return;
-      S.tasks = r.tasks; S.day = r.day || {}; S.dayLoaded = true;
+      // 다른 날로 옮긴 할 일은 원래 날에 남기지 않음 (v1.10부터). 예전 버전에서 넘기면서 원래 날에 → 표시로 남겨 둔 일도 보이지 않게 함
+      S.tasks = r.tasks.filter(function (t) { return t.status !== 'fwd'; });
+      S.day = r.day || {}; S.dayLoaded = true;
       renderTasks(); renderSched(); renderNotes(false);
       if (S.editId) renderSheet();
       if (S.info) renderInfo(false);
@@ -836,11 +838,10 @@
     }
   }
 
-  /* 할 일 아래 작은 글씨: 넘긴 날짜(원래 날짜 쪽)와 맡긴 사람만. 진행 중은 ● 표시로만,
-     다른 날에서 넘어온 일은 내용만 보여 줌(어느 날에서 넘어왔는지·몇 번째인지는 표시하지 않음, v1.8부터) */
+  /* 할 일 아래 작은 글씨: 맡긴 사람만. 진행 중은 ● 표시로만,
+     다른 날에서 옮겨 온 일은 내용만 보여 줌(어느 날에서 옮겨 왔는지·몇 번째인지는 표시하지 않음, v1.8부터) */
   function taskRow(t, label) {
     var st = t.status || 'open', meta = [];
-    if (st === 'fwd' && t.fwdTo) meta.push('→ ' + md(t.fwdTo) + '로 넘김');
     if (st === 'deleg') meta.push(esc(t.who || '누군가') + '에게 맡김');
     return '<li class="task st-' + st + ' pri-' + esc(t.pri) + (t.bold ? ' em' : '') + '" data-id="' + esc(t.id) + '">' +
       '<button class="st" data-act="toggle" aria-label="' + label + ' ' + STATUS_NAME[st] + ', 눌러서 상태 바꾸기">' + statusSymbol(t) + '</button>' +
@@ -2053,65 +2054,43 @@
     S.store.updateTask(id, Object.assign(statusPatch(t, st), { status: st, updated: Date.now() }));
   }
 
-  /* 넘긴 일을 되돌릴 때: 아직 손대지 않은 사본은 지움 */
-  function unforwardOps(t) {
-    var ops = [];
-    if (t.fwdId) {
-      var copy = null;
-      for (var i = 0; i < S.pending.length; i++) if (S.pending[i].id === t.fwdId) copy = S.pending[i];
-      if (copy && copy.status === 'open') ops.push({ type: 'remove', id: t.fwdId });
-    }
-    ops.push({ type: 'update', id: t.id, patch: { status: 'open', fwdTo: null, fwdId: null, updated: Date.now() } });
-    return ops;
-  }
-
   function setStatus(id, st, extra) {
     var t = findTask(id); if (!t) return;
-    var ops = t.status === 'fwd' ? unforwardOps(t) : [];
     var patch = Object.assign(statusPatch(t, st), { status: st, updated: Date.now() });
     if (st !== 'deleg') patch.who = null;
     if (extra) Object.keys(extra).forEach(function (k) { patch[k] = extra[k]; });
-    ops.push({ type: 'update', id: id, patch: patch });
-    S.store.commit(ops);
+    S.store.updateTask(id, patch);
+  }
+
+  /* 할 일을 다른 날로 옮김 (v1.10부터): 같은 할 일을 그날로 옮기므로 원래 날의 목록에서는 사라짐(→ 표시를 남기지 않음).
+     내용 · A·B·C · 진하게 · 상태는 그대로 두고, 자리만 옮긴 날에 맞춰 다시 정함:
+     진행 중은 같은 글자의 맨 위, 완료는 맨 아래, 나머지는 그 글자의 끝(완료한 일 위). k: 여러 개를 함께 옮길 때의 차례 */
+  function movePatch(t, toDate, now, k) {
+    k = k || 0;
+    var p = { date: toDate, ord: now + k, updated: now };
+    if (t.status === 'prog') { p.ord = -now + k; p.progAt = now; }
+    if (t.status === 'done') p.ordPrev = null;   // 원래 날에서 완료하기 전 자리는 옮긴 날에서는 뜻이 없음
+    ['fwdTo', 'fwdId', 'fwdFrom', 'fwdCount'].forEach(function (k2) { if (t[k2] != null) p[k2] = null; });   // 예전 버전의 넘김 기록은 정리
+    return p;
   }
 
   function forward(t, toDate) {
     if (!toDate || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) { toast('날짜를 고르십시오.'); return false; }
-    if (toDate === t.date) { toast('같은 날짜로는 넘길 수 없습니다.'); return false; }
-    var ops = t.status === 'fwd' ? unforwardOps(t) : [];
-    var now = Date.now(), id = S.store.newId(), prog = t.status === 'prog';
-    // 넘긴 날에는 내용만 그대로 옮겨 적음 (어느 날에서 넘어왔는지·몇 번째인지는 남기지 않음, v1.8부터).
-    // 진행 중인 일은 넘긴 날에서도 같은 글자의 맨 위, 나머지는 그 글자의 끝(완료한 일 위)
-    var copy = {
-      id: id, date: toDate, pri: t.pri, ord: prog ? -now : now, text: t.text,
-      status: prog ? 'prog' : 'open', created: now, updated: now
-    };
-    if (prog) copy.progAt = now;
-    if (t.bold) copy.bold = true;   // 진하게 표시도 그대로 넘김
-    ops.push({ type: 'set', task: copy });
-    ops.push({ type: 'update', id: t.id, patch: Object.assign(statusPatch(t, 'fwd'), { status: 'fwd', fwdTo: toDate, fwdId: id, who: null, updated: now }) });
-    S.store.commit(ops);
-    toast(md(toDate) + '로 넘겼습니다.');
+    if (toDate === t.date) { toast('같은 날짜로는 옮길 수 없습니다.'); return false; }
+    S.store.updateTask(t.id, movePatch(t, toDate, Date.now()));
+    toast(md(toDate) + '로 옮겼습니다.');
     return true;
   }
 
+  /* 미처리 할 일을 모두 오늘로 옮김 (지난 날의 목록에서는 사라짐). 오래된 날의 일부터, 그날의 순서대로 */
   function pullAllToToday() {
     var t0 = today();
-    var list = S.pending.filter(function (t) { return t.date < t0; });
-    if (!list.length) return;
-    var now = Date.now(), ops = [];
-    list.forEach(function (t, i) {
-      var id = S.store.newId(), prog = t.status === 'prog';
-      var copy = {
-        id: id, date: t0, pri: t.pri, ord: prog ? -now + i : now + i, text: t.text,   // 진행 중인 일은 오늘 목록에서도 맨 위
-        status: prog ? 'prog' : 'open', created: now, updated: now
-      };
-      if (prog) copy.progAt = now;
-      if (t.bold) copy.bold = true;
-      ops.push({ type: 'set', task: copy });
-      ops.push({ type: 'update', id: t.id, patch: Object.assign(statusPatch(t, 'fwd'), { status: 'fwd', fwdTo: t0, fwdId: id, updated: now }) });
+    var list = S.pending.filter(function (t) { return t.date < t0; }).sort(function (a, b) {
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : (PRI_ORDER[a.pri] - PRI_ORDER[b.pri]) || (legacyProg(b) - legacyProg(a)) || ((a.ord || 0) - (b.ord || 0));
     });
-    S.store.commit(ops);
+    if (!list.length) return;
+    var now = Date.now();
+    S.store.commit(list.map(function (t, i) { return { type: 'update', id: t.id, patch: movePatch(t, t0, now, i) }; }));
     if (S.view !== 'day' || S.date !== t0) setDate(t0);
     toast(list.length + '개를 오늘로 가져왔습니다. A·B·C와 순서를 다시 정해 보세요.');
   }
@@ -2163,11 +2142,6 @@
     $('#editText').classList.toggle('em', !!t.bold);
     $$('#editPri button').forEach(function (b) { b.classList.toggle('on', b.dataset.pri === t.pri); });
     $$('#statusGrid button').forEach(function (b) { b.classList.toggle('on', b.dataset.st === (t.status || 'open')); });
-    $('#statusGrid button[data-st="fwd"]').disabled = t.status === 'fwd';
-    var isFwd = t.status === 'fwd';
-    $('#fwdRow').hidden = isFwd;
-    $('#fwdInfo').hidden = !isFwd;
-    if (isFwd) $('#fwdInfoText').textContent = (t.fwdTo ? md(t.fwdTo) + '로 넘긴 할 일입니다.' : '다른 날로 넘긴 할 일입니다.');
     var fd = $('#fwdDate');
     if (!fd.dataset.for || fd.dataset.for !== t.id) { fd.value = addDays(t.date, 1); fd.dataset.for = t.id; }
     var group = moveGroup(sorted, t);
@@ -3041,8 +3015,7 @@
       var b = e.target.closest('button[data-st]'); var t = findTask(S.editId);
       if (!b || !t || b.disabled) return;
       var st = b.dataset.st;
-      if (st === 'fwd') {
-        if (t.status === 'fwd') return;
+      if (st === 'fwd') {   // '→ 옮기기': 아래의 옮길 날짜 칸으로
         var fd = $('#fwdDate');
         fd.scrollIntoView({ block: 'center', behavior: 'smooth' });
         fd.focus();
@@ -3060,18 +3033,16 @@
     });
     $('#btnDelegSave').addEventListener('click', saveDeleg);
     $('#whoInput').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); saveDeleg(); } });
+    // 다른 날로 옮기기: 고치던 내용을 먼저 저장하고 옮긴 뒤 편집 화면을 닫음 (할 일은 이 날 목록에서 사라짐)
     $('#btnFwdTomorrow').addEventListener('click', function () {
       var t = findTask(S.editId); if (!t) return;
+      saveEditText();
       if (forward(t, addDays(t.date, 1))) closeSheet(true);
     });
     $('#btnFwdDate').addEventListener('click', function () {
       var t = findTask(S.editId); if (!t) return;
+      saveEditText();
       if (forward(t, $('#fwdDate').value)) closeSheet(true);
-    });
-    $('#btnUnfwd').addEventListener('click', function () {
-      var t = findTask(S.editId); if (!t) return;
-      S.store.commit(unforwardOps(t));
-      toast('넘기기를 취소했습니다.');
     });
     $('#btnRemove').addEventListener('click', function () {
       if (!S.editId) return;
