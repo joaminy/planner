@@ -169,7 +169,8 @@
      메모 { folder: 폴더 id('' = 폴더 없음), title, body: 그냥 글자(검색·미리보기용),
             bodyHtml: 진하게나 그림이 있을 때만 <b>·<br>·<img>로 쓴 HTML('' = 없음), fav: 즐겨찾기,
             trashed: 휴지통에 넣은 시각(0 = 휴지통 아님), created, updated,
-            ord: 끌어서 정한 순서(작을수록 앞) · imgs: 메모 안 그림 id 목록 · thumb: 첫 그림의 작은 그림 · thumbId (v1.12부터) }
+            ord: 끌어서 정한 순서(작을수록 앞) · imgs: 메모 안 그림 id 목록 · thumb: 첫 그림의 작은 그림 · thumbId (v1.12부터),
+            imgSize: 그림 크기 { 그림 id: 메모 폭에 대한 % (10~100) } — 크기를 정한 그림만 (v1.13부터) }
      그림 { note: 메모 id, data: 그림(data URL), thumb: 작은 그림, w, h, created } (v1.12부터)
             — 메모 문서가 너무 커지지 않게 그림은 따로 저장하고, 메모에는 그림 id만 적습니다.
      지울 값도 null 대신 ''·0·false로 저장합니다(Firebase와 이 기기 저장이 똑같이 동작하도록). */
@@ -207,9 +208,23 @@
     if (imgs.length) {
       out.imgs = imgs;
       if (typeof v.thumb === 'string' && v.thumb.length <= PAD_THUMB_MAX && PAD_IMG_RE.test(v.thumb)) { out.thumb = v.thumb; out.thumbId = padIdOf(v.thumbId); }
+      var size = cleanImgSize(v.imgSize, imgs);
+      if (size) out.imgSize = size;
     }
     if (!out.title.trim() && !out.body.trim() && !imgs.length) return null;   // 빈 메모는 들여오지 않음
     return out;
+  }
+  /* 그림 크기 (v1.13부터): 메모에 있는 그림의 것만, 10~100(%)으로. 하나도 없으면 null */
+  function cleanImgSize(v, imgs) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    var out = {}, n = 0, has = {};
+    (imgs || []).forEach(function (x) { has[x] = 1; });
+    Object.keys(v).forEach(function (k) {
+      var id = padIdOf(k), z = Math.round(Number(v[k]));
+      if (!id || !has[id] || !isFinite(z) || z <= 0 || n >= PAD_IMGS_MAX) return;
+      out[id] = Math.min(100, Math.max(10, z)); n++;
+    });
+    return n ? out : null;
   }
   /* 메모 속 그림: 알맞은 그림 자료만 받음 */
   function cleanPadImage(v) {
@@ -905,7 +920,7 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9, 20 = v1.11, 21 = v1.12) */
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9, 20 = v1.11, 21 = v1.12, 22 = v1.13) */
   window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan,
-    cleanPadFolder: cleanPadFolder, cleanPadNote: cleanPadNote, cleanPadImage: cleanPadImage, v: 21 };
+    cleanPadFolder: cleanPadFolder, cleanPadNote: cleanPadNote, cleanPadImage: cleanPadImage, v: 22 };
 })();

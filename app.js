@@ -221,17 +221,28 @@
     { id: 'diphylleia', name: '산하엽', en: 'Diphylleia', group: 'serif', q: 'Diphylleia', scale: 1 },
     { id: 'poor-story', name: '푸어 스토리', en: 'Poor Story', group: 'hand', q: 'Poor+Story', scale: 1.1 },
     { id: 'gamja-flower', name: '감자꽃', en: 'Gamja Flower', group: 'hand', q: 'Gamja+Flower', scale: 1.2 },
-    /* 새로 더한 10종 (v1.12~) */
-    { id: 'do-hyeon', name: '도현', en: 'Do Hyeon', group: 'sans', q: 'Do+Hyeon', scale: 1.1, isNew: true },
-    { id: 'sunflower', name: '해바라기', en: 'Sunflower', group: 'sans', q: 'Sunflower:wght@300;500;700', scale: 1.05, isNew: true },
-    { id: 'orbit', name: '오르빗', en: 'Orbit', group: 'sans', q: 'Orbit', scale: 1, isNew: true },
-    { id: 'stylish', name: '스타일리시', en: 'Stylish', group: 'sans', q: 'Stylish', scale: 1.15, isNew: true },
-    { id: 'song-myung', name: '송명', en: 'Song Myung', group: 'serif', q: 'Song+Myung', scale: 1, isNew: true },
-    { id: 'nanum-brush', name: '나눔손글씨 붓', en: 'Nanum Brush Script', group: 'hand', q: 'Nanum+Brush+Script', scale: 1.3, isNew: true },
-    { id: 'hi-melody', name: '하이멜로디', en: 'Hi Melody', group: 'hand', q: 'Hi+Melody', scale: 1.25, isNew: true },
-    { id: 'single-day', name: '싱글데이', en: 'Single Day', group: 'hand', q: 'Single+Day', scale: 1.1, isNew: true },
-    { id: 'yeon-sung', name: '연성', en: 'Yeon Sung', group: 'hand', q: 'Yeon+Sung', scale: 1.1, isNew: true },
-    { id: 'east-sea-dokdo', name: '동해 독도', en: 'East Sea Dokdo', group: 'hand', q: 'East+Sea+Dokdo', scale: 1.35, isNew: true }
+    /* v1.12에 더한 10종 */
+    { id: 'do-hyeon', name: '도현', en: 'Do Hyeon', group: 'sans', q: 'Do+Hyeon', scale: 1.1 },
+    { id: 'sunflower', name: '해바라기', en: 'Sunflower', group: 'sans', q: 'Sunflower:wght@300;500;700', scale: 1.05 },
+    { id: 'orbit', name: '오르빗', en: 'Orbit', group: 'sans', q: 'Orbit', scale: 1 },
+    { id: 'stylish', name: '스타일리시', en: 'Stylish', group: 'sans', q: 'Stylish', scale: 1.15 },
+    { id: 'song-myung', name: '송명', en: 'Song Myung', group: 'serif', q: 'Song+Myung', scale: 1 },
+    { id: 'nanum-brush', name: '나눔손글씨 붓', en: 'Nanum Brush Script', group: 'hand', q: 'Nanum+Brush+Script', scale: 1.3 },
+    { id: 'hi-melody', name: '하이멜로디', en: 'Hi Melody', group: 'hand', q: 'Hi+Melody', scale: 1.25 },
+    { id: 'single-day', name: '싱글데이', en: 'Single Day', group: 'hand', q: 'Single+Day', scale: 1.1 },
+    { id: 'yeon-sung', name: '연성', en: 'Yeon Sung', group: 'hand', q: 'Yeon+Sung', scale: 1.1 },
+    { id: 'east-sea-dokdo', name: '동해 독도', en: 'East Sea Dokdo', group: 'hand', q: 'East+Sea+Dokdo', scale: 1.35 },
+    /* 새로 더한 10종 (v1.13~). scale은 같은 크기에서 한글 글자가 작아 보이는 만큼 키운 값 (노토 산스와 견주어 맞춤) */
+    { id: 'asta-sans', name: '아스타 산스', en: 'Asta Sans', group: 'sans', q: 'Asta+Sans:wght@400;700', scale: 1.03, isNew: true },
+    { id: 'nanum-gothic-coding', name: '나눔고딕코딩', en: 'Nanum Gothic Coding', group: 'sans', q: 'Nanum+Gothic+Coding:wght@400;700', scale: 1, isNew: true },
+    { id: 'black-han-sans', name: '검은고딕', en: 'Black Han Sans', group: 'sans', q: 'Black+Han+Sans', scale: 1, isNew: true },
+    { id: 'dongle', name: '동글', en: 'Dongle', group: 'hand', q: 'Dongle:wght@300;400;700', scale: 1.55, isNew: true },
+    { id: 'cute-font', name: '귀여운 폰트', en: 'Cute Font', group: 'hand', q: 'Cute+Font', scale: 1.45, isNew: true },
+    { id: 'dokdo', name: '독도', en: 'Dokdo', group: 'hand', q: 'Dokdo', scale: 1.3, isNew: true },
+    { id: 'kirang-haerang', name: '기랑해랑', en: 'Kirang Haerang', group: 'hand', q: 'Kirang+Haerang', scale: 1.15, isNew: true },
+    { id: 'gugi', name: '구기', en: 'Gugi', group: 'hand', q: 'Gugi', scale: 1, isNew: true },
+    { id: 'black-and-white-picture', name: '흑백사진', en: 'Black And White Picture', group: 'hand', q: 'Black+And+White+Picture', scale: 1.1, isNew: true },
+    { id: 'bagel-fat-one', name: '베이글 팻 원', en: 'Bagel Fat One', group: 'hand', q: 'Bagel+Fat+One', scale: 1, isNew: true }
   ];
   var FONT_SAMPLE = 'A1 분기 보고서 초안 작성<br>오후 2시 고객사 미팅 · 저녁 7시 운동';
   function fontById(id) {
@@ -324,7 +335,8 @@
     return bold;
   }
   /* 화면(DOM)의 글 → 줄 목록. 브라우저가 줄바꿈을 <br>로 넣든 <div>로 넣든 보이는 줄 그대로 읽음.
-     opts.img: 메모장 메모처럼 그림을 넣을 수 있는 곳 — 그림은 { t: '', img: 그림 id, w, h } 조각이 됨 (v1.12부터) */
+     opts.img: 메모장 메모처럼 그림을 넣을 수 있는 곳 — 그림은 { t: '', img: 그림 id, w, h, z } 조각이 됨 (v1.12부터)
+     z: 그림 크기 (v1.13부터) — 메모 폭에 대한 % (10~100), 0 = 원래 크기, -1 = 적혀 있지 않음(예전 버전이 저장한 그림) */
   function rtFromDom(root, opts) {
     var lines = [], cur = null, withImg = !!(opts && opts.img);
     function push(t, b) {
@@ -344,7 +356,11 @@
           }
         } else if (n.nodeType === 1 && n.nodeName === 'IMG') {
           var iid = withImg ? padImgIdOf(n.getAttribute('data-pimg')) : '';
-          if (iid) { if (!cur) cur = []; cur.push({ t: '', b: false, img: iid, w: Math.max(0, parseInt(n.getAttribute('data-w'), 10) || 0), h: Math.max(0, parseInt(n.getAttribute('data-h'), 10) || 0) }); }
+          if (iid) {
+            var za = n.getAttribute('data-z');
+            if (!cur) cur = [];
+            cur.push({ t: '', b: false, img: iid, w: Math.max(0, parseInt(n.getAttribute('data-w'), 10) || 0), h: Math.max(0, parseInt(n.getAttribute('data-h'), 10) || 0), z: za === null ? -1 : padZ(za) });
+          }
         } else if (n.nodeType === 1 && !RT_SKIP.test(n.nodeName)) {
           if (n.nodeName === 'BR') { brk(); continue; }
           var block = RT_BLOCK.test(n.nodeName);
@@ -375,6 +391,36 @@
     return out;
   }
   function padImgIdOf(v) { var s = String(v == null ? '' : v); return /^[A-Za-z0-9_-]{1,60}$/.test(s) ? s : ''; }
+  /* 그림 크기 (v1.13부터): 메모 폭에 대한 % (10~100). 0 = 원래 크기(그림 크기 그대로, 메모 폭을 넘으면 메모 폭에 맞춤)
+     메모 내용(bodyHtml)의 그림마다 data-z로 적고, 메모 문서의 imgSize { 그림 id: % }에도 함께 적어 둠
+     — 예전 버전(v1.12) 앱이 메모를 고치면서 data-z를 떨어뜨려도 imgSize로 크기를 되살림 */
+  var PAD_Z_MIN = 10, PAD_Z_MAX = 100;
+  function padZ(v) {
+    var z = Math.round(Number(v));
+    if (!isFinite(z) || z <= 0) return 0;
+    return Math.min(PAD_Z_MAX, Math.max(PAD_Z_MIN, z));
+  }
+  function padZClean(m) {   // 저장된 imgSize → { 그림 id: % } (알맞은 값만)
+    var out = {}, n = 0;
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return out;
+    Object.keys(m).forEach(function (k) {
+      var id = padImgIdOf(k), z = padZ(m[k]);
+      if (id && z && n < 300) { out[id] = z; n++; }
+    });
+    return out;
+  }
+  function padZMap(lines) {   // 줄 목록 → imgSize (크기를 정한 그림만, 같은 그림이 두 번 있으면 앞의 것)
+    var out = {};
+    lines.forEach(function (l) { l.forEach(function (r) { if (r.img && !(r.img in out)) out[r.img] = r.z > 0 ? r.z : 0; }); });
+    Object.keys(out).forEach(function (k) { if (!out[k]) delete out[k]; });
+    return out;
+  }
+  function padZKey(m) { return Object.keys(m || {}).sort().map(function (k) { return k + ':' + m[k]; }).join(','); }
+  function padZApply(lines, map) {   // 크기가 적혀 있지 않은 그림(-1)에 imgSize의 크기를 채움
+    map = map || {};
+    lines.forEach(function (l) { l.forEach(function (r) { if (r.img && !(r.z >= 0)) r.z = map[r.img] || 0; }); });
+    return lines;
+  }
   /* 줄 목록 → 화면용 HTML (<b>와 <br>만 사용). ranges: 검색어 위치 [[시작, 끝), ...] → <mark> */
   function rtHtml(lines, ranges) {
     ranges = ranges || [];
@@ -393,7 +439,7 @@
             c = e;
           } else { h += esc(t.slice(c - start)); c = end; }
         }
-        if (run.img) out += '<img data-pimg="' + run.img + '" data-w="' + (run.w | 0) + '" data-h="' + (run.h | 0) + '" alt="">';
+        if (run.img) out += '<img data-pimg="' + run.img + '" data-w="' + (run.w | 0) + '" data-h="' + (run.h | 0) + '" data-z="' + (run.z > 0 ? padZ(run.z) : 0) + '" alt="">';
         else out += run.b ? '<b>' + h + '</b>' : h;
         pos = end;
       });
@@ -444,7 +490,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.12';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.13';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -610,10 +656,10 @@
     if (S.view === 'pad') { subscribePad(); renderPad(); }
   }
 
-  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9, 20 = v1.11, 21 = v1.12) */
+  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9, 20 = v1.11, 21 = v1.12, 22 = v1.13) */
   function storeV() { var P = window.PlannerStores; return (P && +P.v) || 0; }
-  /* store.js가 v1.12 파일인지 (v1.12 store.js에 메모 속 그림 저장이 들어 있음) */
-  function storeIsCurrent() { return storeV() >= 21; }
+  /* store.js가 v1.13 파일인지 (v1.13 store.js는 백업 파일을 불러올 때 그림 크기(imgSize)도 함께 들여옴) */
+  function storeIsCurrent() { return storeV() >= 22; }
   /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
   function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
 
@@ -907,7 +953,8 @@
         /* v1.12부터: 직접 정한 순서(없으면 만든 때 — 새것이 앞) · 그림 id 목록 · 첫 그림의 작은 그림 */
         ord: typeof n.ord === 'number' && isFinite(n.ord) ? n.ord : -(+n.created || 0),
         imgs: Array.isArray(n.imgs) ? n.imgs.map(padImgIdOf).filter(Boolean) : [],
-        thumb: typeof n.thumb === 'string' && /^data:image\//.test(n.thumb) ? n.thumb : '', thumbId: typeof n.thumbId === 'string' ? n.thumbId : ''
+        thumb: typeof n.thumb === 'string' && /^data:image\//.test(n.thumb) ? n.thumb : '', thumbId: typeof n.thumbId === 'string' ? n.thumbId : '',
+        imgSize: padZClean(n.imgSize)   // v1.13부터: 그림 크기 { 그림 id: % }
       });
     });
     return { folders: folders, notes: notes };
@@ -924,6 +971,7 @@
     });
   }
   function padReset() {
+    piEnd();
     clearTimeout(PE.timer);
     S.pad.folders = []; S.pad.notes = []; S.pad.loaded = false; S.pad.tree = null;
     S.pad.sel = { kind: 'all', id: '' }; S.pad.open = null; S.pad.q = ''; S.pad.selMode = false; S.pad.picked = {};
@@ -1357,7 +1405,7 @@
     PE = peBlank();
     PE.id = S.store.newPadId();
     PE.cur = { id: PE.id, folder: sel.kind === 'folder' && padFolder(sel.id) ? sel.id : '', title: '', body: '', bodyHtml: '', fav: sel.kind === 'fav', trashed: 0, created: now, updated: now,
-      ord: padNewOrd(), imgs: [], thumb: '', thumbId: '' };
+      ord: padNewOrd(), imgs: [], thumb: '', thumbId: '', imgSize: {} };
     S.pad.open = PE.id;
     padFillEditor(PE.cur, true);
     if (S.pad.pane === 'side') padSetPane('list');   // 폴더 목록에서 바로 쓴 메모는 닫으면 메모 목록으로
@@ -1371,18 +1419,22 @@
     if (force || t.value !== (n.title || '')) t.value = n.title || '';
     var lines = padLines(n), have = {};
     rtImgs(lines).forEach(function (x) { have[x] = 1; });
-    (n.imgs || []).forEach(function (x) { if (!have[x]) lines.push([{ t: '', b: false, img: x, w: 0, h: 0 }]); });   // 예전 버전 앱이 고치며 빠뜨린 그림은 끝에 다시 붙임
+    (n.imgs || []).forEach(function (x) { if (!have[x]) lines.push([{ t: '', b: false, img: x, w: 0, h: 0, z: -1 }]); });   // 예전 버전 앱이 고치며 빠뜨린 그림은 끝에 다시 붙임
+    padZApply(lines, n.imgSize);   // 예전 버전 앱이 그림 크기를 떨어뜨렸으면 imgSize로 되살림
     var html = rtHtml(lines);
-    if (force || rtHtml(rtFromDom(ed, { img: true })) !== html) { ed.innerHTML = html; peRange = null; peHydrate(ed); }
+    if (force || rtHtml(rtFromDom(ed, { img: true })) !== html) { piEnd(); ed.innerHTML = html; peRange = null; peHydrate(ed); }
     ed.classList.toggle('is-empty', notesLooksEmpty(ed));
     padFillMeta(n);
   }
   function padFillMeta(n) {
     var f = padFolder(n.folder), trashed = !!n.trashed;
-    $('#peFolder').innerHTML = padFolderIcon(f ? f.color : '') + '<span>' + esc(f ? f.name : '폴더 없음') + '</span>';
-    $('#peFolder').disabled = trashed;
+    if (trashed) piEnd();   // 휴지통에 들어간 메모의 그림은 크기를 바꿀 수 없음
+    /* 단추 안 그림은 바뀔 때만 다시 그림 — 누르는 도중(새 메모가 처음 저장되는 순간)에 다시 그리면 그 누름이 사라지므로 (v1.13에서 고침) */
+    var pf = $('#peFolder'), fk = (f ? f.id + '|' + f.color + '|' + f.name : '');
+    if (pf.dataset.k !== fk || !pf.firstChild) { pf.innerHTML = padFolderIcon(f ? f.color : '') + '<span>' + esc(f ? f.name : '폴더 없음') + '</span>'; pf.dataset.k = fk; }
+    pf.disabled = trashed;
     var fb = $('#peFav');
-    fb.innerHTML = n.fav ? PAD_ICON.fav : PAD_ICON.favOff;
+    if (fb.dataset.on !== String(!!n.fav) || !fb.firstChild) { fb.innerHTML = n.fav ? PAD_ICON.fav : PAD_ICON.favOff; fb.dataset.on = String(!!n.fav); }
     fb.setAttribute('aria-pressed', n.fav ? 'true' : 'false');
     fb.setAttribute('aria-label', n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기');
     fb.title = n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기';
@@ -1424,24 +1476,27 @@
     if (html.length > PAD_HTML_MAX) html = '';
     imgs.forEach(function (x) { PE.known[x] = 1; });
     var th = padThumbFor(n, imgs), now = Date.now();
+    var zmap = html ? padZMap(lines) : {}, sameZ = padZKey(zmap) === padZKey(n.imgSize);   // 그림 크기 (v1.13부터)
     if (!PE.exists) {
       if (!title.trim() && !body.trim() && !imgs.length) { peMeta(n, ''); return; }   // 아직 아무것도 적지 않은 새 메모는 저장하지 않음
       S.store.padCommit([{ kind: 'note', op: 'set', id: PE.id, data: { folder: n.folder, title: title, body: body, bodyHtml: html, fav: n.fav, trashed: 0, created: n.created, updated: now,
-        ord: typeof n.ord === 'number' ? n.ord : padNewOrd(), imgs: imgs, thumb: th.thumb, thumbId: th.thumbId } }]);
+        ord: typeof n.ord === 'number' ? n.ord : padNewOrd(), imgs: imgs, thumb: th.thumb, thumbId: th.thumbId, imgSize: zmap } }]);
       PE.exists = true;
     } else {
       var sameImgs = imgs.join(',') === (n.imgs || []).join(',') && th.thumbId === (n.thumbId || '');
-      if (title === n.title && body === n.body && html === (n.bodyHtml || '') && sameImgs) { peMeta(n, '저장됨'); return; }
+      if (title === n.title && body === n.body && html === (n.bodyHtml || '') && sameImgs && sameZ) { peMeta(n, '저장됨'); return; }
       var up = { title: title, body: body, bodyHtml: html, updated: now };
       if (!sameImgs) { up.imgs = imgs; up.thumb = th.thumb; up.thumbId = th.thumbId; }
+      if (!sameZ) up.imgSize = zmap;
       S.store.padCommit([{ kind: 'note', op: 'update', id: PE.id, data: up }]);
     }
-    PE.cur = Object.assign({}, n, { title: title, body: body, bodyHtml: html, updated: now, imgs: imgs, thumb: th.thumb, thumbId: th.thumbId });
+    PE.cur = Object.assign({}, n, { title: title, body: body, bodyHtml: html, updated: now, imgs: imgs, thumb: th.thumb, thumbId: th.thumbId, imgSize: zmap });
     peMeta(PE.cur, '저장됨');
     if (cut) toast('메모가 너무 길어 뒷부분은 저장되지 않았습니다. (10만 자까지)', 'error', null, 6000);
   }
   /* 메모를 닫을 때: 저장하고, 제목과 내용을 모두 비운 메모는 남기지 않음. 내용에서 지운 그림은 저장 공간에서도 지움 */
   function padCloseNote() {
+    piEnd();
     if (!S.pad.open) return;
     peSave();
     var n = PE.exists ? PE.cur : null, keep = peKeepImgs();
@@ -1473,13 +1528,14 @@
     if (!n) {
       if (!PE.seen) return;   // 방금 만든 메모가 아직 목록에 오기 전
       clearTimeout(PE.timer);
+      piEnd();
       S.pad.open = null; PE = peBlank();
       if (S.view === 'pad') { S.pad.pane = 'list'; padPopOne(); toast('다른 기기에서 지운 메모입니다.'); }
       return;
     }
     PE.seen = true;
     (n.imgs || []).forEach(function (x) { PE.known[x] = 1; });
-    if ((n.updated || 0) >= (PE.cur.updated || 0) && !PE.dirty && !peFocused() && !PE.busy) { PE.cur = Object.assign({}, n); padFillEditor(n, false); }
+    if ((n.updated || 0) >= (PE.cur.updated || 0) && !PE.dirty && !peFocused() && !PE.busy && !PI) { PE.cur = Object.assign({}, n); padFillEditor(n, false); }   // 그림 크기를 바꾸는 중(PI)에는 화면을 바꾸지 않음
     else { PE.cur.folder = n.folder; PE.cur.fav = n.fav; PE.cur.trashed = n.trashed; PE.cur.ord = n.ord; padFillMeta(PE.cur); }
   }
   function peFav() {
@@ -1494,6 +1550,7 @@
   function peTrash() {
     var n = peNote();
     if (!n || !S.store) return;
+    piEnd();
     peSave();
     var id = PE.id, existed = PE.exists, empty = peIsEmpty();
     clearTimeout(PE.timer);
@@ -1521,6 +1578,7 @@
     if (!n || !S.store) return;
     if (!window.confirm('이 메모를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
     var id = n.id;
+    piEnd();
     clearTimeout(PE.timer);
     (n.imgs || []).forEach(function (x) { PE.known[x] = 1; });
     peDropImgs([]);
@@ -2097,9 +2155,9 @@
   /* 메모 화면의 그림에 실제 그림을 채움 */
   function peHydrate(root) {
     $$('img[data-pimg]', root).forEach(function (im) {
-      var id = im.getAttribute('data-pimg'), w = +im.getAttribute('data-w') || 0, h = +im.getAttribute('data-h') || 0;
+      var id = im.getAttribute('data-pimg');
       im.setAttribute('draggable', 'false'); im.alt = '';
-      if (w > 0 && h > 0) { im.style.aspectRatio = w + ' / ' + h; im.style.width = Math.min(w, 2000) + 'px'; }
+      piStyle(im);
       if (im.getAttribute('src')) return;
       var c = PADIMG[id];
       if (c && typeof c.then !== 'function' && c.data) { im.src = c.data; return; }
@@ -2211,7 +2269,7 @@
     if (!rg) { rg = document.createRange(); rg.selectNodeContents(ed); rg.collapse(false); }
     sel.removeAllRanges(); sel.addRange(rg);
     var cx = padCaretCtx(ed, rg);
-    var tag = '<img src="' + r.data + '" data-pimg="' + id + '" data-w="' + r.w + '" data-h="' + r.h + '" alt="" draggable="false">';
+    var tag = '<img src="' + r.data + '" data-pimg="' + id + '" data-w="' + r.w + '" data-h="' + r.h + '" data-z="0" alt="" draggable="false">';
     var html = (cx.before ? '<br>' : '') + tag + '<br>' + (cx.atEnd ? '<br>' : '');
     var ok = false;
     try { ok = document.execCommand('insertHTML', false, html); } catch (e) { ok = false; }
@@ -2275,6 +2333,216 @@
       sel.removeAllRanges(); sel.addRange(rr);
       break;
     }
+  }
+
+  /* ── 그림 크기 바꾸기 (v1.13부터) ──
+     메모 속 그림을 누르면(PC는 클릭) 위쪽 막대가 '그림 크기' 막대로 바뀌고, 그림에 테두리와 동그란 손잡이가 나옴.
+     손잡이를 끌거나 − · + · 꽉 차게 · 원래 크기 단추로 크기를 바꿈. 크기는 메모 폭에 대한 %로 저장(PC와 휴대폰에서 같은 비율).
+     그림 밖을 누르거나 ✕(PC는 Esc)를 누르면 끝남. 지우기 단추로 그림을 지울 수 있고, 바로 뒤 '되돌리기'로 되살림 */
+  var PI = null;        // 고른 그림 { img, drag: 끄는 중 { pid, x, y, w0, cw, ratio, z, moved } }
+  var piTouch = null;   // 손가락으로 그림을 누르는 중 { im, x, y, t }
+  function piImgAt(t) {
+    var ed = $('#peBody'), im = t && t.closest ? t.closest('img[data-pimg]') : null;
+    return im && ed && ed.contains(im) ? im : null;
+  }
+  function piCanEdit() { var n = peNote(); return !!n && !n.trashed && !!$('#peImgBar') && !!$('#peImgFrame') && !!$('#peBar'); }
+  function piZOf(im) { var a = im.getAttribute('data-z'); return a === null ? 0 : padZ(a); }
+  function piStyle(im) {   // 그림의 화면 크기: 정한 크기(%)가 있으면 그 폭, 없으면 그림 크기 그대로(메모 폭을 넘지 않게)
+    var w = +im.getAttribute('data-w') || 0, h = +im.getAttribute('data-h') || 0, z = piZOf(im);
+    im.style.aspectRatio = w > 0 && h > 0 ? w + ' / ' + h : '';
+    im.style.width = z > 0 ? z + '%' : (w > 0 && h > 0 ? Math.min(w, 2000) + 'px' : '');
+  }
+  function piColW(im) {   // 그림이 놓인 줄의 폭 (= 100%)
+    var cb = im.parentElement;
+    while (cb && cb !== document.body && /^inline/.test(getComputedStyle(cb).display)) cb = cb.parentElement;
+    if (!cb) return 1;
+    var cs = getComputedStyle(cb);
+    return Math.max(1, cb.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
+  }
+  function piPct(im) { return Math.max(1, Math.round(im.getBoundingClientRect().width / piColW(im) * 100)); }
+  function piSelect(im, touch) {
+    if (!im || !piCanEdit()) return;
+    if (PI && PI.img === im) { piPlace(); return; }
+    piEnd();
+    PI = { img: im, drag: null };
+    im.classList.add('pimg-on');
+    padSaveMenu(false);
+    var ed = $('#peBody'), a = document.activeElement, sel = window.getSelection();
+    if (touch) {   // 휴대폰: 키보드를 닫아 그림과 막대가 잘 보이게
+      if (a && (a === ed || ed.contains(a) || a.id === 'peTitle')) a.blur();
+    } else if (sel && a === ed) {   // PC: 커서는 그림 바로 뒤로
+      try { var r = document.createRange(); r.setStartAfter(im); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); } catch (e) { /* 무시 */ }
+    }
+    $('#peBar').hidden = true;
+    $('#peImgBar').hidden = false;
+    $('#peImgFrame').hidden = false;
+    piPlace();
+  }
+  function piEnd() {
+    if (!PI) return;
+    var im = PI.img, dragging = !!PI.drag;
+    PI = null;
+    if (im) { im.classList.remove('pimg-on'); if (dragging) piStyle(im); }   // 끄는 중에 끝나면 원래 크기로 되돌림
+    document.documentElement.classList.remove('pimg-dragging');
+    var bar = $('#peImgBar'), fr = $('#peImgFrame'), pb = $('#peBar');
+    if (bar) bar.hidden = true;
+    if (fr) fr.hidden = true;
+    if (pb) pb.hidden = false;
+  }
+  /* 테두리 · 손잡이를 그림 위에 맞춤 (메모 화면 안의 자리라서 화면을 넘겨도 그대로 따라감) */
+  function piPlace() {
+    if (!PI) return;
+    var im = PI.img, ed = $('#peBody'), box = $('#padEditor'), fr = $('#peImgFrame');
+    if (!im.isConnected || !ed || !ed.contains(im) || !box || !fr || S.view !== 'pad' || !S.pad.open) { piEnd(); return; }
+    var r = im.getBoundingClientRect(), b = box.getBoundingClientRect(), o = 3;   // 테두리는 그림 바깥으로 3px
+    fr.style.left = Math.round(r.left - b.left - o) + 'px'; fr.style.top = Math.round(r.top - b.top - o) + 'px';
+    fr.style.width = Math.round(r.width + 2 * o) + 'px'; fr.style.height = Math.round(r.height + 2 * o) + 'px';
+    piPaint();
+  }
+  function piPaint() {   // 막대의 % 표시와 단추 상태
+    if (!PI) return;
+    var im = PI.img, z = PI.drag ? PI.drag.z : piZOf(im), pct = PI.drag ? PI.drag.z : piPct(im);
+    $('#pibPct').textContent = pct + '%';
+    $('#pibLess').disabled = pct <= PAD_Z_MIN;
+    $('#pibMore').disabled = pct >= PAD_Z_MAX;
+    var full = z === PAD_Z_MAX, orig = !z;
+    $('#pibFull').classList.toggle('on', full); $('#pibFull').setAttribute('aria-pressed', full ? 'true' : 'false');
+    $('#pibOrig').classList.toggle('on', orig); $('#pibOrig').setAttribute('aria-pressed', orig ? 'true' : 'false');
+    var tag = $('#pifTag');
+    if (tag) { tag.textContent = pct + '%'; tag.hidden = !PI.drag; }
+  }
+  /* 크기 정하기: z = 메모 폭에 대한 % (10~100), 0 = 원래 크기 */
+  function piSet(z) {
+    if (!PI || !piCanEdit()) return;
+    var im = PI.img;
+    z = padZ(z);
+    if (z !== piZOf(im) || !im.hasAttribute('data-z')) {
+      im.setAttribute('data-z', String(z));
+      piStyle(im);
+      peTouch();
+    }
+    piPlace();
+  }
+  /* − · + : 10% 단위로 (지금 크기에서 가장 가까운 다음 단계로) */
+  function piStep(dir) {
+    if (!PI) return;
+    var cur = piPct(PI.img), n;
+    if (dir > 0) { n = Math.floor(cur / 10) * 10 + 10; if (n - cur < 3) n += 10; }
+    else { n = Math.ceil(cur / 10) * 10 - 10; if (cur - n < 3) n -= 10; }
+    piSet(Math.min(PAD_Z_MAX, Math.max(PAD_Z_MIN, n)));
+  }
+  /* 그림 지우기 (그림만 있던 줄이면 그 줄도 함께). 바로 뒤 '되돌리기'로 같은 자리에 되살림.
+     메모를 닫을 때까지는 그림 자료를 지우지 않으므로 되살릴 수 있음 */
+  function piDelete() {
+    if (!PI || !piCanEdit()) return;
+    var im = PI.img, parent = im.parentNode, prev = im.previousSibling, next = im.nextSibling, br = null, id0 = PE.id;
+    while (prev && prev.nodeType === 3 && !prev.nodeValue.length) prev = prev.previousSibling;
+    var alone = !prev || prev.nodeName === 'BR' || (prev.nodeType === 1 && RT_BLOCK.test(prev.nodeName));
+    if (alone && next && next.nodeName === 'BR') br = next;
+    var after = br ? br.nextSibling : next;
+    piEnd();
+    parent.removeChild(im);
+    if (br) parent.removeChild(br);
+    peTouch();
+    toast('그림을 지웠습니다.', null, {
+      label: '되돌리기', fn: function () {
+        var ed = $('#peBody');
+        if (PE.id !== id0 || !peNote() || peNote().trashed || !parent.isConnected || !ed.contains(parent) || im.isConnected) { toast('메모를 닫았거나 내용이 바뀌어 되돌릴 수 없습니다.'); return; }
+        parent.insertBefore(im, after && after.parentNode === parent ? after : null);
+        if (br) parent.insertBefore(br, im.nextSibling);
+        peHydrate(parent);
+        peTouch();
+      }
+    });
+  }
+  /* 손잡이 끌기 (마우스 · 손가락 · 펜): 오른쪽·아래로 끌면 커지고 왼쪽·위로 끌면 작아짐 */
+  function piDragStart(e) {
+    if (!PI || !piCanEdit() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault(); e.stopPropagation();
+    var im = PI.img, r = im.getBoundingClientRect(), w = +im.getAttribute('data-w') || r.width, h = +im.getAttribute('data-h') || r.height;
+    PI.drag = { pid: e.pointerId, x: e.clientX, y: e.clientY, w0: r.width, cw: piColW(im), ratio: w / Math.max(1, h), z: piPct(im), moved: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) { /* 무시 */ }
+    document.documentElement.classList.add('pimg-dragging');
+    piPaint();
+  }
+  function piDragMove(e) {
+    var d = PI && PI.drag;
+    if (!d || e.pointerId !== d.pid) return;
+    e.preventDefault();
+    var dx = e.clientX - d.x, dy = (e.clientY - d.y) * d.ratio, delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+    if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 3) d.moved = true;
+    var z = Math.min(PAD_Z_MAX, Math.max(PAD_Z_MIN, Math.round((d.w0 + delta) / d.cw * 100)));
+    if (z === d.z && PI.img.style.width === z + '%') return;
+    d.z = z;
+    PI.img.style.width = z + '%';
+    piPlace();
+  }
+  function piDragStop(e, apply) {
+    var d = PI && PI.drag;
+    if (!d || (e && e.pointerId !== d.pid)) return;
+    PI.drag = null;
+    document.documentElement.classList.remove('pimg-dragging');
+    if (apply && d.moved) piSet(d.z);
+    else { piStyle(PI.img); piPlace(); }
+  }
+  function bindImgSize(ed) {
+    try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { /* Firefox 자체 손잡이는 쓰지 않음 */ }
+    var bar = $('#peImgBar'), grip = $('#pifGrip');
+    if (!bar || !grip) return;   // index.html이 예전 파일이면 그림 크기 바꾸기 없이 동작
+    bar.addEventListener('mousedown', function (e) { if (e.target.closest('button')) e.preventDefault(); });   // PC: 메모의 커서를 그대로 두려고
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      if (b.id === 'pibClose') piEnd();
+      else if (b.id === 'pibLess') piStep(-1);
+      else if (b.id === 'pibMore') piStep(1);
+      else if (b.id === 'pibFull') piSet(PAD_Z_MAX);
+      else if (b.id === 'pibOrig') piSet(0);
+      else if (b.id === 'pibDel') piDelete();
+    });
+    grip.addEventListener('pointerdown', piDragStart);
+    grip.addEventListener('pointermove', piDragMove);
+    grip.addEventListener('pointerup', function (e) { piDragStop(e, true); });
+    grip.addEventListener('pointercancel', function (e) { piDragStop(e, false); });
+    grip.addEventListener('lostpointercapture', function (e) { piDragStop(e, true); });
+    // PC: 그림을 누르면 고름
+    ed.addEventListener('click', function (e) { var im = piImgAt(e.target); if (im) piSelect(im, false); });
+    // 휴대폰: 그림을 살짝 누르면 고름 (커서 · 키보드가 나오지 않게). 누른 채 움직이면 화면 넘기기
+    ed.addEventListener('touchstart', function (e) {
+      var im = e.touches.length === 1 ? piImgAt(e.target) : null;
+      piTouch = im && piCanEdit() ? { im: im, x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null;
+    }, { passive: true });
+    ed.addEventListener('touchmove', function (e) {
+      if (piTouch && (e.touches.length !== 1 || Math.abs(e.touches[0].clientX - piTouch.x) + Math.abs(e.touches[0].clientY - piTouch.y) > 12)) piTouch = null;
+    }, { passive: true });
+    ed.addEventListener('touchend', function (e) {
+      var t = piTouch; piTouch = null;
+      if (!t || e.touches.length || Date.now() - t.t > 450 || !t.im.isConnected || !piCanEdit()) return;   // 오래 누르면(휴대폰 메뉴) 고르지 않음
+      if (e.cancelable) e.preventDefault();
+      piSelect(t.im, true);
+    }, { passive: false });
+    ed.addEventListener('touchcancel', function () { piTouch = null; }, { passive: true });
+    // PC: 그림을 고른 채 Delete · Backspace = 그림 지우기, 다른 글쇠를 누르면 고르기를 끝내고 그대로 적음
+    ed.addEventListener('keydown', function (e) {
+      if (!PI) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.isComposing) { e.preventDefault(); e.stopPropagation(); piDelete(); return; }
+      if (/^(Escape|Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;   // Esc는 아래 전체 Esc 처리에서 끝냄
+      piEnd();
+    }, true);
+    ed.addEventListener('compositionstart', function () { piEnd(); });   // 한글을 적기 시작하면 고르기를 끝냄
+    ed.addEventListener('input', function () { if (PI) piPlace(); });
+    ed.addEventListener('paste', function () { piEnd(); }, true);
+    ed.addEventListener('load', function () { if (PI) piPlace(); }, true);   // 그림을 불러오면 자리가 바뀔 수 있음
+    window.addEventListener('resize', function () { if (PI) piPlace(); });
+    if (window.ResizeObserver) { try { new ResizeObserver(function () { if (PI && !PI.drag) piPlace(); }).observe(ed); } catch (e) { /* 무시 */ } }
+    // 그림 · 막대 밖을 누르면 끝냄
+    document.addEventListener('click', function (e) {
+      if (!PI) return;
+      var t = e.target;
+      if (t && t.closest && (t.closest('#peImgBar') || t.closest('#peImgFrame') || t.closest('#toast'))) return;
+      if (piImgAt(t)) return;   // 다른 그림을 누르면 그 그림을 고름(위의 click 처리)
+      piEnd();
+    }, true);
   }
 
   /* ── 메모를 파일로 저장: 그림(PNG) · PDF · 텍스트(TXT) ── */
@@ -2393,7 +2661,8 @@
         if (seg.length) { wrap(seg, fsB, lhB, '#222'); seg = []; }
         var im = imgs[r.img];
         if (!im) { blocks.push({ type: 'miss', h: lhB }); return; }
-        var iw = Math.min(CW, im.naturalWidth * s), ih = Math.round(iw * im.naturalHeight / Math.max(1, im.naturalWidth));
+        var iw = r.z > 0 ? CW * padZ(r.z) / 100 : Math.min(CW, im.naturalWidth * s);   // 그림 크기(메모 폭에 대한 %)를 정했으면 그 크기로 (v1.13부터)
+        var ih = Math.round(iw * im.naturalHeight / Math.max(1, im.naturalWidth));
         blocks.push({ type: 'img', im: im, w: Math.round(iw), h: ih, pad: Math.round(6 * s) });
       });
       if (seg.length || !hasImg) wrap(seg, fsB, lhB, '#222');
@@ -2582,6 +2851,7 @@
     $('#peRestore').addEventListener('click', peRestore);
     $('#peKill').addEventListener('click', peKill);
     var t = $('#peTitle'), ed = $('#peBody');
+    bindImgSize(ed);   // 그림 크기 바꾸기 (v1.13부터)
     t.addEventListener('input', peTouch);
     t.addEventListener('blur', peSave);
     t.addEventListener('keydown', function (e) {   // 제목에서 Enter → 내용으로
@@ -3423,6 +3693,13 @@
     var mk = S.monthCursor, p = mk.split('-'), y = +p[0], m = +p[1];
     $('#monthTitle').textContent = y + '년 ' + m + '월';
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
+    var gt = $('#mGoToday'), gd = gt && $('.gt-d', gt);   // '오늘 페이지' 단추: 작은 달력에 오늘 날짜
+    if (gd) {
+      var tdt = parse(t0), tl = (tdt.getMonth() + 1) + '월 ' + tdt.getDate() + '일 ' + WD[tdt.getDay()] + '요일';
+      gd.textContent = String(tdt.getDate());
+      gt.setAttribute('aria-label', '오늘 페이지로 가기 (' + tl + ')');
+      gt.title = '오늘 페이지로 가기 — ' + tl;
+    }
     var cur = S.schedKey === mk;
     var map = cur ? S.sched : {}, smap = cur ? S.schedStyle : {}, bgs = cur ? S.dayBg : {};
     var items = allDayItems(map, smap, cur ? S.spans : [], mk + '-01', mk + '-' + pad(days)), accent = accentHex();
@@ -3927,7 +4204,7 @@
   }
 
   function renderFontView() {
-    FONTS.forEach(loadFontCss); // 미리보기를 위해 25종을 모두 불러옴
+    FONTS.forEach(loadFontCss); // 미리보기를 위해 35종을 모두 불러옴
     renderThemeList();
     $('#fontDesc').textContent = S.mode === 'firebase'
       ? '플래너 색깔과 글꼴을 고릅니다. 고른 설정은 PC와 휴대폰에 함께 적용됩니다.'
@@ -4959,6 +5236,8 @@
     $('#mPrev').addEventListener('click', function () { shiftMonth(-1); });
     $('#mNext').addEventListener('click', function () { shiftMonth(1); });
     $('#mToday').addEventListener('click', function () { S.monthCursor = monthKey(today()); subscribeSched(S.monthCursor); renderMonth(); });
+    var mgt = $('#mGoToday');   // 월간 달력에서 오늘 페이지로 바로 가기 (v1.13부터)
+    if (mgt) mgt.addEventListener('click', function () { setDate(today()); });
 
     $('#btnPullAll').addEventListener('click', pullAllToToday);
     $('#btnPullAll2').addEventListener('click', pullAllToToday);
@@ -5056,6 +5335,7 @@
       if (e.key === 'Escape') {
         if (!$('#padFolderSheet').hidden) { closePadFolder(); return; }
         if (!$('#padPickSheet').hidden) { closePadPick(); return; }
+        if (S.view === 'pad' && PI) { piEnd(); return; }   // 그림 크기 바꾸기 끝내기
         if (S.view === 'pad' && DD) { padDragEnd(false); return; }
         if (S.view === 'pad' && !$('#padMenu').hidden) { padMenu(false); return; }
         if (S.view === 'pad' && !$('#padViewMenu').hidden) { padViewMenu(false); return; }
