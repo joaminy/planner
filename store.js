@@ -164,21 +164,30 @@
   }
 
   /* ───────── 메모장 (v1.11부터): 폴더 안에 폴더를 둘 수 있는 메모 ─────────
-     폴더 { name, parent: 위 폴더 id('' = 맨 위), color: 폴더 색('' = 기본), created, updated }
+     폴더 { name, parent: 위 폴더 id('' = 맨 위), color: 폴더 색('' = 기본), created, updated,
+            ord: 끌어서 정한 순서(1부터, 0 = 이름 순서) (v1.12부터) }
      메모 { folder: 폴더 id('' = 폴더 없음), title, body: 그냥 글자(검색·미리보기용),
-            bodyHtml: 진하게가 있을 때만 <b>·<br>로 쓴 HTML('' = 없음), fav: 즐겨찾기,
-            trashed: 휴지통에 넣은 시각(0 = 휴지통 아님), created, updated }
+            bodyHtml: 진하게나 그림이 있을 때만 <b>·<br>·<img>로 쓴 HTML('' = 없음), fav: 즐겨찾기,
+            trashed: 휴지통에 넣은 시각(0 = 휴지통 아님), created, updated,
+            ord: 끌어서 정한 순서(작을수록 앞) · imgs: 메모 안 그림 id 목록 · thumb: 첫 그림의 작은 그림 · thumbId (v1.12부터) }
+     그림 { note: 메모 id, data: 그림(data URL), thumb: 작은 그림, w, h, created } (v1.12부터)
+            — 메모 문서가 너무 커지지 않게 그림은 따로 저장하고, 메모에는 그림 id만 적습니다.
      지울 값도 null 대신 ''·0·false로 저장합니다(Firebase와 이 기기 저장이 똑같이 동작하도록). */
   var PAD_COLORS = ['', 'red', 'orange', 'yellow', 'green', 'teal', 'sky', 'blue', 'navy', 'purple', 'pink', 'brown', 'gray'];
   var PAD_TITLE_MAX = 200, PAD_BODY_MAX = 100000, PAD_HTML_MAX = 300000, PAD_NAME_MAX = 40;
+  var PAD_IMG_MAX = 900000, PAD_THUMB_MAX = 60000, PAD_IMGS_MAX = 300;   // Firebase 문서 하나는 1MB까지
+  var PAD_IMG_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+\/=]+$/;
   function padIdOf(v) { return String(v == null ? '' : v).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
+  function padNum(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
   function cleanPadFolder(v) {
     if (!v || typeof v !== 'object') return null;
     var name = String(v.name == null ? '' : v.name).replace(/\s+/g, ' ').trim().slice(0, PAD_NAME_MAX);
     if (!name) return null;
+    var ord = padNum(v.ord);
     return {
       name: name, parent: padIdOf(v.parent), color: PAD_COLORS.indexOf(v.color) >= 0 ? v.color : '',
-      created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
+      created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now(),
+      ord: ord !== null && ord > 0 ? ord : 0
     };
   }
   function cleanPadNote(v) {
@@ -192,8 +201,24 @@
       trashed: Number(v.trashed) > 0 ? Number(v.trashed) : 0,
       created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
     };
-    if (!out.title.trim() && !out.body.trim()) return null;   // 빈 메모는 들여오지 않음
+    var ord = padNum(v.ord);
+    if (ord !== null) out.ord = ord;
+    var imgs = Array.isArray(v.imgs) ? v.imgs.map(padIdOf).filter(Boolean).slice(0, PAD_IMGS_MAX) : [];
+    if (imgs.length) {
+      out.imgs = imgs;
+      if (typeof v.thumb === 'string' && v.thumb.length <= PAD_THUMB_MAX && PAD_IMG_RE.test(v.thumb)) { out.thumb = v.thumb; out.thumbId = padIdOf(v.thumbId); }
+    }
+    if (!out.title.trim() && !out.body.trim() && !imgs.length) return null;   // 빈 메모는 들여오지 않음
     return out;
+  }
+  /* 메모 속 그림: 알맞은 그림 자료만 받음 */
+  function cleanPadImage(v) {
+    if (!v || typeof v !== 'object') return null;
+    var data = typeof v.data === 'string' ? v.data : '';
+    if (!data || data.length > PAD_IMG_MAX || !PAD_IMG_RE.test(data)) return null;
+    var thumb = typeof v.thumb === 'string' && v.thumb.length <= PAD_THUMB_MAX && PAD_IMG_RE.test(v.thumb) ? v.thumb : '';
+    function side(x) { x = Math.round(Number(x) || 0); return x > 0 ? Math.min(x, 20000) : 1; }
+    return { note: padIdOf(v.note), data: data, thumb: thumb, w: side(v.w), h: side(v.h), created: Number(v.created) || Date.now() };
   }
   function buildPadImportOps(data) {
     var ops = [], pad = data && data.pad;
@@ -207,6 +232,36 @@
       if (c && id) ops.push({ kind: 'note', op: 'set', id: id, data: c });
     });
     return ops;
+  }
+  function buildPadImgImport(data) {   // 백업 파일의 그림 [{ id, rec }]
+    var pad = data && data.pad, out = [];
+    (pad && Array.isArray(pad.images) ? pad.images : []).forEach(function (v) {
+      var c = cleanPadImage(v), id = padIdOf(v && v.id);
+      if (c && id) out.push({ id: id, rec: c });
+    });
+    return out;
+  }
+  /* 이 기기에만 저장할 때 그림은 IndexedDB에 (localStorage는 5MB 안팎이라 그림을 담기에 작음) */
+  function idbOpen(name) {
+    return new Promise(function (res, rej) {
+      var rq;
+      try {
+        if (!window.indexedDB) throw new Error('no-indexeddb');
+        rq = window.indexedDB.open(name, 1);
+      } catch (e) { rej(e); return; }
+      rq.onupgradeneeded = function () { var db = rq.result; if (!db.objectStoreNames.contains('img')) db.createObjectStore('img'); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error || new Error('indexeddb')); };
+      rq.onblocked = function () { rej(new Error('indexeddb-blocked')); };
+    });
+  }
+  function idbRun(db, mode, fn) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction('img', mode), out = null, rq = fn(tx.objectStore('img'));
+      if (rq) rq.onsuccess = function () { out = rq.result; };
+      tx.oncomplete = function () { res(out); };
+      tx.onerror = tx.onabort = function () { rej(tx.error || new Error('indexeddb')); };
+    });
   }
 
   /* ───────────────────── LocalStore ───────────────────── */
@@ -372,6 +427,59 @@
     });
     this._save(); this._changed();
   };
+  /* 메모 속 그림 (v1.12부터): IndexedDB가 안 되는 브라우저(사생활 보호 모드 등)에서는 앱을 닫을 때까지만 기억 */
+  LocalStore.prototype._imgDb = function () {
+    var self = this;
+    if (!this._idb) this._idb = idbOpen(this.key + ':img').catch(function () { self._imgMem = self._imgMem || {}; return null; });
+    return this._idb;
+  };
+  LocalStore.prototype.padImgPut = function (id, rec) {
+    var self = this, c = cleanPadImage(rec);
+    id = padIdOf(id);
+    if (!id || !c) return Promise.reject(new Error('bad-image'));
+    return this._imgDb().then(function (db) {
+      if (!db) { self._imgMem[id] = c; return; }
+      return idbRun(db, 'readwrite', function (st) { return st.put(c, id); });
+    }).then(null, function (e) {
+      if (self.onError) self.onError({ code: 'local-save-failed', message: String(e) });
+      throw e;
+    });
+  };
+  LocalStore.prototype.padImgGet = function (id) {
+    var self = this;
+    id = padIdOf(id);
+    if (!id) return Promise.resolve(null);
+    return this._imgDb().then(function (db) {
+      if (!db) return (self._imgMem && self._imgMem[id]) || null;
+      return idbRun(db, 'readonly', function (st) { return st.get(id); });
+    }).then(function (v) { return v ? clone(v) : null; }, function () { return null; });
+  };
+  LocalStore.prototype.padImgDel = function (ids) {
+    var self = this;
+    ids = (ids || []).map(padIdOf).filter(Boolean);
+    if (!ids.length) return Promise.resolve();
+    return this._imgDb().then(function (db) {
+      if (!db) { ids.forEach(function (id) { delete self._imgMem[id]; }); return; }
+      return idbRun(db, 'readwrite', function (st) { ids.forEach(function (id) { st['delete'](id); }); return null; });
+    }).then(null, function () { /* 못 지운 그림은 남아 있어도 메모에는 영향 없음 */ });
+  };
+  LocalStore.prototype.padImgAll = function () {
+    var self = this;
+    return this._imgDb().then(function (db) {
+      if (!db) return Object.keys(self._imgMem || {}).map(function (id) { var o = clone(self._imgMem[id]); o.id = id; return o; });
+      return new Promise(function (res, rej) {
+        var out = [], tx = db.transaction('img', 'readonly'), rq = tx.objectStore('img').openCursor();
+        rq.onsuccess = function () {
+          var c = rq.result;
+          if (!c) return;
+          var o = clone(c.value || {}); o.id = String(c.key); out.push(o);
+          c['continue']();
+        };
+        tx.oncomplete = function () { res(out); };
+        tx.onerror = tx.onabort = function () { rej(tx.error || new Error('indexeddb')); };
+      });
+    }).then(null, function () { return []; });
+  };
   LocalStore.prototype.setSpan = function (id, patch) {
     if (!id) return;
     var sp = this.data.spans || (this.data.spans = {});
@@ -449,19 +557,27 @@
     this._save(); this._changed();
   };
   LocalStore.prototype.exportAll = function () {
-    return Promise.resolve({
-      tasks: this._tasks().map(clone),
-      days: clone(this.data.days),
-      profile: clone(this.data.profile),
-      spans: this._spans(),
-      pad: this._padLists()
+    var self = this, pad = this._padLists();
+    return this.padImgAll().then(function (imgs) {
+      pad.images = imgs;
+      return {
+        tasks: self._tasks().map(clone),
+        days: clone(self.data.days),
+        profile: clone(self.data.profile),
+        spans: self._spans(),
+        pad: pad
+      };
     });
   };
   LocalStore.prototype.importAll = function (data) {
+    var self = this;
     this.commit(buildImportOps(data));
     var po = buildPadImportOps(data);
     if (po.length) this.padCommit(po);
-    return Promise.resolve();
+    var imgs = buildPadImgImport(data);
+    return imgs.reduce(function (p, x) {
+      return p.then(function () { return self.padImgPut(x.id, x.rec).then(null, function () { /* 다음 그림으로 */ }); });
+    }, Promise.resolve());
   };
   LocalStore.prototype.destroy = function () {
     this.subs = [];
@@ -500,6 +616,7 @@
     this.spansCol = FB.collection(db, 'users', uid, 'spans');   // 여러 날 종일 일정 (v1.6부터)
     this.padFoldersCol = FB.collection(db, 'users', uid, 'padFolders');   // 메모장 폴더 (v1.11부터)
     this.padNotesCol = FB.collection(db, 'users', uid, 'padNotes');       // 메모장 메모 (v1.11부터)
+    this.padImgCol = FB.collection(db, 'users', uid, 'padImages');        // 메모 속 그림 (v1.12부터)
     this.profileRef = FB.doc(db, 'users', uid, 'meta', 'profile');
     this.meta = {};        // 리스너별 { pending, cache }
     this.unsubs = [];
@@ -662,6 +779,31 @@
       else if (o.op === 'remove') self._track(FB.deleteDoc(ref));
     });
   };
+  /* 메모 속 그림 (v1.12부터): 그림 하나가 문서 하나. 한 번 저장한 그림은 바뀌지 않으므로 이 기기에 받아 둔 것을 먼저 씀 */
+  FirebaseStore.prototype.padImgPut = function (id, rec) {
+    var c = cleanPadImage(rec);
+    id = padIdOf(id);
+    if (!id || !c) return Promise.reject(new Error('bad-image'));
+    var p = this.FB.setDoc(this.FB.doc(this.padImgCol, id), c);
+    this._track(p);
+    return p;
+  };
+  FirebaseStore.prototype.padImgGet = function (id) {
+    var FB = this.FB, ref;
+    id = padIdOf(id);
+    if (!id) return Promise.resolve(null);
+    ref = FB.doc(this.padImgCol, id);
+    function val(s) { return s && s.exists() ? s.data() : null; }
+    var cached = typeof FB.getDocFromCache === 'function' ? FB.getDocFromCache(ref).then(val, function () { return null; }) : Promise.resolve(null);
+    return cached.then(function (v) {
+      return v || FB.getDoc(ref).then(val, function () { return null; });
+    });
+  };
+  FirebaseStore.prototype.padImgDel = function (ids) {
+    var FB = this.FB, self = this;
+    (ids || []).map(padIdOf).filter(Boolean).forEach(function (id) { self._track(FB.deleteDoc(FB.doc(self.padImgCol, id))); });
+    return Promise.resolve();
+  };
   FirebaseStore.prototype.setSpan = function (id, patch) {
     if (!id) return;
     this._track(this.FB.setDoc(this.FB.doc(this.spansCol, id), strip(patch), { merge: true }));
@@ -725,7 +867,7 @@
       r[1].docs.forEach(function (d) { days[d.id] = d.data(); });
       var prof = r[2] && r[2].exists() ? r[2].data() : {};
       return { tasks: docsOf(r[0]), days: days, profile: prof, spans: r[3] ? docsOf(r[3]) : [],
-        pad: { folders: r[4] ? docsOf(r[4]) : [], notes: r[5] ? docsOf(r[5]) : [] }, partial: partial };
+        pad: { folders: r[4] ? docsOf(r[4]) : [], notes: r[5] ? docsOf(r[5]) : [], images: r[6] ? docsOf(r[6]) : [] }, partial: partial };
     }
     function fromCache() {
       return Promise.all([
@@ -734,12 +876,13 @@
         FB.getDocFromCache(self.profileRef).catch(function () { return null; }),
         FB.getDocsFromCache(self.spansCol).catch(function () { return null; }),
         FB.getDocsFromCache(self.padFoldersCol).catch(function () { return null; }),
-        FB.getDocsFromCache(self.padNotesCol).catch(function () { return null; })
+        FB.getDocsFromCache(self.padNotesCol).catch(function () { return null; }),
+        FB.getDocsFromCache(self.padImgCol).catch(function () { return null; })
       ]).then(function (r) { return build(r, true); });
     }
     var server = Promise.all([FB.getDocs(this.tasksCol), FB.getDocs(this.daysCol), FB.getDoc(this.profileRef), FB.getDocs(this.spansCol),
-      FB.getDocs(this.padFoldersCol), FB.getDocs(this.padNotesCol)]);
-    var timeout = new Promise(function (res) { timer = setTimeout(function () { res(null); }, 8000); });
+      FB.getDocs(this.padFoldersCol), FB.getDocs(this.padNotesCol), FB.getDocs(this.padImgCol)]);
+    var timeout = new Promise(function (res) { timer = setTimeout(function () { res(null); }, 12000); });
     return Promise.race([server, timeout]).then(function (r) {
       clearTimeout(timer);
       return r ? build(r, false) : fromCache();
@@ -749,9 +892,11 @@
     });
   };
   FirebaseStore.prototype.importAll = function (data) {
+    var self = this;
     this.commit(buildImportOps(data));
     var po = buildPadImportOps(data);
     if (po.length) this.padCommit(po);
+    buildPadImgImport(data).forEach(function (x) { self.padImgPut(x.id, x.rec).then(null, function () { /* 오류는 _track이 알림 */ }); });
     return Promise.resolve();
   };
   FirebaseStore.prototype.destroy = function () {
@@ -760,7 +905,7 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9, 20 = v1.11) */
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9, 20 = v1.11, 21 = v1.12) */
   window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan,
-    cleanPadFolder: cleanPadFolder, cleanPadNote: cleanPadNote, v: 20 };
+    cleanPadFolder: cleanPadFolder, cleanPadNote: cleanPadNote, cleanPadImage: cleanPadImage, v: 21 };
 })();

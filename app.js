@@ -215,12 +215,23 @@
     { id: 'nanum-pen', name: '나눔손글씨 펜', en: 'Nanum Pen Script', group: 'hand', q: 'Nanum+Pen+Script', scale: 1.35 },
     { id: 'gaegu', name: '개구', en: 'Gaegu', group: 'hand', q: 'Gaegu:wght@400;700', scale: 1.2 },
     { id: 'jua', name: '주아', en: 'Jua', group: 'hand', q: 'Jua', scale: 1.08 },
-    /* 새로 더한 5종 (v1.4~) */
-    { id: 'gothic-a1', name: '고딕 A1', en: 'Gothic A1', group: 'sans', q: 'Gothic+A1:wght@400;700', scale: 1, isNew: true },
-    { id: 'hahmlet', name: '함렛', en: 'Hahmlet', group: 'serif', q: 'Hahmlet:wght@400;700', scale: 1, isNew: true },
-    { id: 'diphylleia', name: '산하엽', en: 'Diphylleia', group: 'serif', q: 'Diphylleia', scale: 1, isNew: true },
-    { id: 'poor-story', name: '푸어 스토리', en: 'Poor Story', group: 'hand', q: 'Poor+Story', scale: 1.1, isNew: true },
-    { id: 'gamja-flower', name: '감자꽃', en: 'Gamja Flower', group: 'hand', q: 'Gamja+Flower', scale: 1.2, isNew: true }
+    /* v1.4에 더한 5종 */
+    { id: 'gothic-a1', name: '고딕 A1', en: 'Gothic A1', group: 'sans', q: 'Gothic+A1:wght@400;700', scale: 1 },
+    { id: 'hahmlet', name: '함렛', en: 'Hahmlet', group: 'serif', q: 'Hahmlet:wght@400;700', scale: 1 },
+    { id: 'diphylleia', name: '산하엽', en: 'Diphylleia', group: 'serif', q: 'Diphylleia', scale: 1 },
+    { id: 'poor-story', name: '푸어 스토리', en: 'Poor Story', group: 'hand', q: 'Poor+Story', scale: 1.1 },
+    { id: 'gamja-flower', name: '감자꽃', en: 'Gamja Flower', group: 'hand', q: 'Gamja+Flower', scale: 1.2 },
+    /* 새로 더한 10종 (v1.12~) */
+    { id: 'do-hyeon', name: '도현', en: 'Do Hyeon', group: 'sans', q: 'Do+Hyeon', scale: 1.1, isNew: true },
+    { id: 'sunflower', name: '해바라기', en: 'Sunflower', group: 'sans', q: 'Sunflower:wght@300;500;700', scale: 1.05, isNew: true },
+    { id: 'orbit', name: '오르빗', en: 'Orbit', group: 'sans', q: 'Orbit', scale: 1, isNew: true },
+    { id: 'stylish', name: '스타일리시', en: 'Stylish', group: 'sans', q: 'Stylish', scale: 1.15, isNew: true },
+    { id: 'song-myung', name: '송명', en: 'Song Myung', group: 'serif', q: 'Song+Myung', scale: 1, isNew: true },
+    { id: 'nanum-brush', name: '나눔손글씨 붓', en: 'Nanum Brush Script', group: 'hand', q: 'Nanum+Brush+Script', scale: 1.3, isNew: true },
+    { id: 'hi-melody', name: '하이멜로디', en: 'Hi Melody', group: 'hand', q: 'Hi+Melody', scale: 1.25, isNew: true },
+    { id: 'single-day', name: '싱글데이', en: 'Single Day', group: 'hand', q: 'Single+Day', scale: 1.1, isNew: true },
+    { id: 'yeon-sung', name: '연성', en: 'Yeon Sung', group: 'hand', q: 'Yeon+Sung', scale: 1.1, isNew: true },
+    { id: 'east-sea-dokdo', name: '동해 독도', en: 'East Sea Dokdo', group: 'hand', q: 'East+Sea+Dokdo', scale: 1.35, isNew: true }
   ];
   var FONT_SAMPLE = 'A1 분기 보고서 초안 작성<br>오후 2시 고객사 미팅 · 저녁 7시 운동';
   function fontById(id) {
@@ -312,13 +323,14 @@
     }
     return bold;
   }
-  /* 화면(DOM)의 글 → 줄 목록. 브라우저가 줄바꿈을 <br>로 넣든 <div>로 넣든 보이는 줄 그대로 읽음 */
-  function rtFromDom(root) {
-    var lines = [], cur = null;
+  /* 화면(DOM)의 글 → 줄 목록. 브라우저가 줄바꿈을 <br>로 넣든 <div>로 넣든 보이는 줄 그대로 읽음.
+     opts.img: 메모장 메모처럼 그림을 넣을 수 있는 곳 — 그림은 { t: '', img: 그림 id, w, h } 조각이 됨 (v1.12부터) */
+  function rtFromDom(root, opts) {
+    var lines = [], cur = null, withImg = !!(opts && opts.img);
     function push(t, b) {
       if (!cur) cur = [];
       var last = cur[cur.length - 1];
-      if (last && last.b === b) last.t += t; else cur.push({ t: t, b: b });
+      if (last && !last.img && last.b === b) last.t += t; else cur.push({ t: t, b: b });
     }
     function brk() { lines.push(cur || []); cur = []; }                 // 줄바꿈: 지금 줄을 닫고 새 줄을 엶
     function boundary() { if (cur && cur.length) lines.push(cur); cur = null; }  // 문단 경계: 비어 있는 새 줄은 버림
@@ -330,6 +342,9 @@
             if (i) brk();
             if (parts[i]) push(parts[i], bold);
           }
+        } else if (n.nodeType === 1 && n.nodeName === 'IMG') {
+          var iid = withImg ? padImgIdOf(n.getAttribute('data-pimg')) : '';
+          if (iid) { if (!cur) cur = []; cur.push({ t: '', b: false, img: iid, w: Math.max(0, parseInt(n.getAttribute('data-w'), 10) || 0), h: Math.max(0, parseInt(n.getAttribute('data-h'), 10) || 0) }); }
         } else if (n.nodeType === 1 && !RT_SKIP.test(n.nodeName)) {
           if (n.nodeName === 'BR') { brk(); continue; }
           var block = RT_BLOCK.test(n.nodeName);
@@ -345,13 +360,21 @@
   function rtFromText(text) {
     return String(text || '').split('\n').map(function (l) { return l ? [{ t: l, b: false }] : []; });
   }
-  function rtFromHtml(html) {
+  function rtFromHtml(html, opts) {
     var tpl = document.createElement('template');   // template 안의 내용은 실행·표시되지 않음
     tpl.innerHTML = html;
-    return rtFromDom(tpl.content);
+    return rtFromDom(tpl.content, opts);
   }
-  function rtText(lines) { return lines.map(function (l) { return l.map(function (r) { return r.t; }).join(''); }).join('\n'); }
+  /* 그냥 글자: 그림 자리에는 보이지 않는 표시(U+2060)를 둠 — 예전 버전 앱이 그림만 있는 메모를 '빈 메모'로 여겨 지우지 않게 */
+  var RT_IMG_MARK = '\u2060';
+  function rtText(lines) { return lines.map(function (l) { return l.map(function (r) { return r.img ? RT_IMG_MARK : r.t; }).join(''); }).join('\n'); }
   function rtHasBold(lines) { return lines.some(function (l) { return l.some(function (r) { return r.b && r.t.trim(); }); }); }
+  function rtImgs(lines) {   // 들어 있는 그림 id (순서대로, 한 번씩)
+    var out = [], seen = {};
+    lines.forEach(function (l) { l.forEach(function (r) { if (r.img && !seen[r.img]) { seen[r.img] = 1; out.push(r.img); } }); });
+    return out;
+  }
+  function padImgIdOf(v) { var s = String(v == null ? '' : v); return /^[A-Za-z0-9_-]{1,60}$/.test(s) ? s : ''; }
   /* 줄 목록 → 화면용 HTML (<b>와 <br>만 사용). ranges: 검색어 위치 [[시작, 끝), ...] → <mark> */
   function rtHtml(lines, ranges) {
     ranges = ranges || [];
@@ -370,7 +393,8 @@
             c = e;
           } else { h += esc(t.slice(c - start)); c = end; }
         }
-        out += run.b ? '<b>' + h + '</b>' : h;
+        if (run.img) out += '<img data-pimg="' + run.img + '" data-w="' + (run.w | 0) + '" data-h="' + (run.h | 0) + '" alt="">';
+        else out += run.b ? '<b>' + h + '</b>' : h;
         pos = end;
       });
     });
@@ -401,9 +425,10 @@
     dowOpen: false, dowColor: readPref('dowColor', ''), dowEach: null, dowTarget: 'all',
     memos: null, memoQ: '', memoLimit: 60,
     /* 메모장 (v1.11부터): sel = 보고 있는 곳 { kind: 'all' | 'fav' | 'trash' | 'folder', id }, pane = 휴대폰에서 보이는 단계, open = 열린 메모 id */
-    pad: { folders: [], notes: [], loaded: false, tree: null, sel: { kind: 'all', id: '' }, pane: 'side', open: null, q: '' },
+    pad: { folders: [], notes: [], loaded: false, tree: null, sel: { kind: 'all', id: '' }, pane: 'side', open: null, q: '', selMode: false, picked: {} },
     padLayout: readPref('padLayout', 'grid') === 'list' ? 'list' : 'grid',
-    padSort: ['updated', 'created', 'title'].indexOf(readPref('padSort', 'updated')) >= 0 ? readPref('padSort', 'updated') : 'updated',
+    padSort: ['updated', 'created', 'title', 'manual'].indexOf(readPref('padSort', 'updated')) >= 0 ? readPref('padSort', 'updated') : 'updated',
+    padGrid: Math.min(4, Math.max(1, parseInt(readPref('padGrid', '2'), 10) || 2)),   // 격자 크기 1 작게 · 2 보통 · 3 크게 · 4 아주 크게 (기기마다)
     padOpen: (function () { var o = {}; try { (JSON.parse(readPref('padOpen', '[]')) || []).forEach(function (k) { if (typeof k === 'string') o[k] = 1; }); } catch (e) { /* 무시 */ } return o; })(),
     addPri: readPref('addPri', 'A'),
     font: 'noto-sans', fontAll: false,
@@ -419,7 +444,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.11';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.12';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -585,16 +610,17 @@
     if (S.view === 'pad') { subscribePad(); renderPad(); }
   }
 
-  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9, 20 = v1.11) */
+  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9, 20 = v1.11, 21 = v1.12) */
   function storeV() { var P = window.PlannerStores; return (P && +P.v) || 0; }
-  /* store.js가 v1.11 파일인지 (v1.11 store.js에 메모장 저장이 들어 있음) */
-  function storeIsCurrent() { return storeV() >= 20; }
+  /* store.js가 v1.12 파일인지 (v1.12 store.js에 메모 속 그림 저장이 들어 있음) */
+  function storeIsCurrent() { return storeV() >= 21; }
   /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
   function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
 
   function detachStore() {
     flushInfo(); flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); closePaint(); closeDow();
-    padCloseNote(); closePadFolder(); closePadPick(); padMenu(false);
+    if (DD) padDragEnd(false); else padLPCancel();
+    padCloseNote(); closePadFolder(); closePadPick(); padMenu(false); padViewMenu(false); padSaveMenu(false);
     closeInfo(true);
     Object.keys(S.unsub).forEach(function (k) { if (S.unsub[k]) S.unsub[k](); S.unsub[k] = null; });
     if (S.store && S.store.destroy) S.store.destroy();
@@ -725,7 +751,7 @@
     { id: 'gray', name: '회색', hex: '#888478' }
   ];
   var PAD_TITLE_MAX = 200, PAD_BODY_MAX = 100000, PAD_HTML_MAX = 300000, PAD_NAME_MAX = 40;
-  var PAD_SORT_KEYS = ['updated', 'created', 'title'];
+  var PAD_SORT_KEYS = ['updated', 'created', 'title', 'manual'];
   function padHex(id) {
     for (var i = 1; i < PAD_COLORS.length; i++) if (id && PAD_COLORS[i].id === id) return PAD_COLORS[i].hex;
     return '';
@@ -748,7 +774,13 @@
 
   function padOk() { return !!(S.store && typeof S.store.watchPad === 'function' && typeof S.store.padCommit === 'function' && typeof S.store.newPadId === 'function'); }
   function padIsPhone() { return !window.matchMedia || window.matchMedia('(max-width: 899px)').matches; }
-  function padByName(a, b) { return a.name.localeCompare(b.name, 'ko', { numeric: true }) || ((a.created || 0) - (b.created || 0)); }
+  /* 폴더 순서: 끌어서 정한 순서(ord)가 있는 폴더가 먼저, 나머지는 이름 순서 */
+  function padByName(a, b) {
+    var ao = a.ord > 0, bo = b.ord > 0;
+    if (ao && bo && a.ord !== b.ord) return a.ord - b.ord;
+    if (ao !== bo) return ao ? -1 : 1;
+    return a.name.localeCompare(b.name, 'ko', { numeric: true }) || ((a.created || 0) - (b.created || 0));
+  }
 
   /* 폴더 나무: byId · kids(위 폴더 id → 하위 폴더 목록) · parent(실제 위 폴더) · 메모 개수(direct: 그 폴더만, total: 하위 폴더까지) */
   function padBuild() {
@@ -819,14 +851,14 @@
     return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + WD[d.getDay()] + ') ' + padTime(d);
   }
   function padFirstLine(s) {
-    var m = String(s || '').split('\n');
+    var m = String(s || '').replace(/\u2060/g, '').split('\n');
     for (var i = 0; i < m.length; i++) if (m[i].trim()) return m[i].trim();
     return '';
   }
   function padTitleOf(n) { return String(n.title || '').trim() || padFirstLine(n.body) || '제목 없음'; }
   /* 카드에 보일 내용: 제목이 없으면 첫 줄이 제목 자리에 나오므로 그다음부터. 찾는 낱말이 뒤쪽에 있으면 그 근처를 */
   function padPreview(n, q) {
-    var b = String(n.body || '');
+    var b = String(n.body || '').replace(/\u2060/g, '');
     if (!String(n.title || '').trim()) {
       var lines = b.split('\n'), i = 0;
       while (i < lines.length && !lines[i].trim()) i++;
@@ -850,10 +882,10 @@
     }
     return out + esc(text.slice(i));
   }
-  function padLines(n) {   // 저장된 메모 내용 → 줄 목록 (진하게 포함). 예전 기기가 그냥 글자만 고쳤으면 그쪽을 따름
+  function padLines(n) {   // 저장된 메모 내용 → 줄 목록 (진하게·그림 포함). 예전 기기가 그냥 글자만 고쳤으면 그쪽을 따름
     var plain = typeof n.body === 'string' ? n.body : '';
     if (typeof n.bodyHtml === 'string' && n.bodyHtml) {
-      var lines = rtFromHtml(n.bodyHtml);
+      var lines = rtFromHtml(n.bodyHtml, { img: true });
       if (rtText(lines) === plain) return lines;
     }
     return rtFromText(plain);
@@ -862,7 +894,8 @@
     var folders = [], notes = [];
     (d && d.folders || []).forEach(function (f) {
       if (!f || !f.id || typeof f.name !== 'string' || !f.name.trim()) return;
-      folders.push({ id: String(f.id), name: f.name.trim().slice(0, PAD_NAME_MAX), parent: typeof f.parent === 'string' ? f.parent : '', color: padHex(f.color) ? f.color : '', created: +f.created || 0, updated: +f.updated || 0 });
+      folders.push({ id: String(f.id), name: f.name.trim().slice(0, PAD_NAME_MAX), parent: typeof f.parent === 'string' ? f.parent : '', color: padHex(f.color) ? f.color : '', created: +f.created || 0, updated: +f.updated || 0,
+        ord: typeof f.ord === 'number' && isFinite(f.ord) && f.ord > 0 ? f.ord : 0 });
     });
     (d && d.notes || []).forEach(function (n) {
       if (!n || !n.id) return;
@@ -870,7 +903,11 @@
         id: String(n.id), folder: typeof n.folder === 'string' ? n.folder : '',
         title: typeof n.title === 'string' ? n.title : '', body: typeof n.body === 'string' ? n.body : '',
         bodyHtml: typeof n.bodyHtml === 'string' ? n.bodyHtml : '', fav: n.fav === true,
-        trashed: Number(n.trashed) > 0 ? Number(n.trashed) : 0, created: +n.created || 0, updated: +n.updated || +n.created || 0
+        trashed: Number(n.trashed) > 0 ? Number(n.trashed) : 0, created: +n.created || 0, updated: +n.updated || +n.created || 0,
+        /* v1.12부터: 직접 정한 순서(없으면 만든 때 — 새것이 앞) · 그림 id 목록 · 첫 그림의 작은 그림 */
+        ord: typeof n.ord === 'number' && isFinite(n.ord) ? n.ord : -(+n.created || 0),
+        imgs: Array.isArray(n.imgs) ? n.imgs.map(padImgIdOf).filter(Boolean) : [],
+        thumb: typeof n.thumb === 'string' && /^data:image\//.test(n.thumb) ? n.thumb : '', thumbId: typeof n.thumbId === 'string' ? n.thumbId : ''
       });
     });
     return { folders: folders, notes: notes };
@@ -889,8 +926,8 @@
   function padReset() {
     clearTimeout(PE.timer);
     S.pad.folders = []; S.pad.notes = []; S.pad.loaded = false; S.pad.tree = null;
-    S.pad.sel = { kind: 'all', id: '' }; S.pad.open = null; S.pad.q = '';
-    PE = peBlank();
+    S.pad.sel = { kind: 'all', id: '' }; S.pad.open = null; S.pad.q = ''; S.pad.selMode = false; S.pad.picked = {};
+    PE = peBlank(); PADIMG = {};
   }
 
   /* ── 화면 단계와 '뒤로 가기' (휴대폰: 폴더 목록 0 → 메모 목록 1 → 메모 2, PC: 메모를 열 때만) ── */
@@ -917,9 +954,10 @@
     if (padHist <= 0) return;
     padHist--;
     if (padSheetPushed) { padSheetPushed = false; closePadFolder(true); closePadPick(true); return; }   // 폴더 창: 창만 닫음
+    if (padSelPushed) { padSelEnd(true); return; }   // 고르기: 고르기만 끝냄
     if (S.view !== 'pad') return;
-    if (!$('#padMenu').hidden || !$('#drawer').hidden) {   // 메뉴가 열려 있으면 메뉴만 닫고, 지금 단계는 그대로
-      padMenu(false); closeDrawer();
+    if (!$('#padMenu').hidden || !$('#padViewMenu').hidden || !$('#peSaveMenu').hidden || !$('#drawer').hidden) {   // 메뉴가 열려 있으면 메뉴만 닫고, 지금 단계는 그대로
+      padMenu(false); padViewMenu(false); padSaveMenu(false); closeDrawer();
       try { history.pushState({ pad: PAD_DEPTH[S.pad.pane] }, ''); padHist++; } catch (e) { /* 무시 */ }
       return;
     }
@@ -935,17 +973,19 @@
     renderPad();
   }
   function padLeave() {   // 메모장을 떠날 때: 저장하고 닫음, 쌓아 둔 뒤로 가기 기록도 한 번에 정리
-    padSheetPushed = false;
-    padCloseNote(); closePadFolder(true); closePadPick(true); padMenu(false);
+    padSheetPushed = false; padSelPushed = false; S.pad.selMode = false; S.pad.picked = {};
+    if (DD) padDragEnd(false); else padLPCancel();
+    padCloseNote(); closePadFolder(true); closePadPick(true); padMenu(false); padViewMenu(false); padSaveMenu(false);
     if (padHist > 0) { var n = padHist; padHist = 0; padSkipPop++; try { history.go(-n); } catch (e) { padSkipPop--; } }
   }
 
   /* ── 그리기 ── */
   function renderPad() {
     if (S.view !== 'pad') return;
+    if (DD || (LP && LP.fired)) { padRenderLater = true; return; }   // 끄는 중에는 화면을 바꾸지 않고, 끝난 뒤 한 번에 그림
     var root = $('#pad'), msg = $('#padMsg'), P = S.pad;
     if (!padOk() || !P.loaded) {
-      msg.textContent = !S.store ? '' : !padOk() ? '메모장을 쓰려면 store.js 파일도 새 버전(v1.11)으로 올려 주세요. 업데이트 파일을 모두 다시 올리면 됩니다.' : '불러오는 중…';
+      msg.textContent = !S.store ? '' : !padOk() ? '메모장을 쓰려면 store.js 파일도 새 버전으로 올려 주세요. 업데이트 파일을 모두 다시 올리면 됩니다.' : '불러오는 중…';
       msg.hidden = false; root.hidden = true;
       return;
     }
@@ -955,8 +995,13 @@
     renderPadSide();
     var open = !!P.open;
     $('#padListWrap').hidden = open; $('#padEditor').hidden = !open;
-    $('#padNew').hidden = open || (P.sel.kind === 'trash' && P.pane !== 'side');
+    if (open && P.selMode) { P.selMode = false; P.picked = {}; }
+    padFabPaint();
     if (!open) renderPadList();
+  }
+  function padFabPaint() {
+    var P = S.pad;
+    $('#padNew').hidden = !!P.open || P.selMode || (P.sel.kind === 'trash' && P.pane !== 'side');
   }
   function renderPadSide() {
     var P = S.pad, T = P.tree, sel = P.sel;
@@ -1000,14 +1045,17 @@
     return list.slice().sort(function (a, b) {
       if (trash) return (b.trashed - a.trashed) || (b.updated - a.updated);   // 휴지통: 최근에 넣은 것부터
       if (k === 'title') return padTitleOf(a).localeCompare(padTitleOf(b), 'ko', { numeric: true }) || (b.updated - a.updated);
+      if (k === 'manual') return (a.ord - b.ord) || (b.created - a.created);
       return ((b[k] || 0) - (a[k] || 0)) || (b.updated - a.updated);
     });
   }
   function padCard(n, showFolder, q) {
     var hasTitle = !!String(n.title || '').trim(), first = padFirstLine(n.body), t = padTitleOf(n), pv = padPreview(n, q);
-    var f = showFolder ? padFolder(padNoteFolder(n)) : null;
-    var when = S.pad.sel.kind === 'trash' ? '휴지통 · ' + padWhen(n.trashed) : padWhen(S.padSort === 'created' ? n.created : n.updated);
-    return '<button type="button" class="pcard" data-note="' + esc(n.id) + '">' +
+    var f = showFolder ? padFolder(padNoteFolder(n)) : null, P = S.pad, on = P.selMode && !!P.picked[n.id];
+    var when = P.sel.kind === 'trash' ? '휴지통 · ' + padWhen(n.trashed) : padWhen(S.padSort === 'created' ? n.created : n.updated);
+    return '<button type="button" class="pcard' + (n.thumb ? ' has-img' : '') + (on ? ' picked' : '') + '" data-note="' + esc(n.id) + '"' + (P.selMode ? ' aria-pressed="' + on + '"' : '') + '>' +
+      '<span class="pc-chk" aria-hidden="true"></span>' +
+      (n.thumb ? '<span class="pc-img"><img src="' + esc(n.thumb) + '" alt="" draggable="false"></span>' : '') +
       '<span class="pc-t' + (!hasTitle && !first ? ' none' : '') + '">' + padHl(t, q) + '</span>' +
       (pv.trim() ? '<span class="pc-b">' + padHl(pv, q) + '</span>' : '') +
       '<span class="pc-f">' + (n.fav ? '<span class="pc-star" aria-label="즐겨찾기">★</span>' : '') +
@@ -1030,16 +1078,18 @@
     sb.innerHTML = f ? subs.map(function (x) {
       return '<button type="button" class="psub" data-folder="' + esc(x.id) + '">' + padFolderIcon(x.color) + '<span class="psn">' + esc(x.name) + '</span><span class="pc">' + (T.total[x.id] || 0) + '</span></button>';
     }).join('') + '<button type="button" class="psub add" data-pact="sub">+ 하위 폴더</button>' : '';
-    var list = padScope();
-    if (q) {
-      var lq = q.toLowerCase();
-      list = list.filter(function (n) { return (n.title + '\n' + n.body).toLowerCase().indexOf(lq) >= 0; });
+    var list = padVisible();
+    if (P.selMode) {   // 고른 메모가 다른 기기에서 지워졌으면 빼고, 하나도 남지 않으면 고르기를 끝냄
+      var vis = {};
+      list.forEach(function (n) { vis[n.id] = 1; });
+      Object.keys(P.picked).forEach(function (id) { if (!vis[id]) delete P.picked[id]; });
+      if (!Object.keys(P.picked).length) { P.selMode = false; if (padSelPushed) { padSelPushed = false; padPopOne(); } }
     }
-    list = padSorted(list);
     var showFolder = !f || !!q;
     $('#padCount').textContent = q ? '찾은 메모 ' + list.length + '개' : '메모 ' + list.length + '개' + (subs.length ? ' · 하위 폴더 ' + subs.length + '개' : '');
     var box = $('#padList');
     box.dataset.layout = S.padLayout;
+    box.dataset.size = String(S.padGrid);
     if (list.length) box.innerHTML = list.map(function (n) { return padCard(n, showFolder, q); }).join('');
     else {
       var empty = q ? '‘' + esc(q) + '’이(가) 들어간 메모가 없습니다.'
@@ -1053,17 +1103,25 @@
     $('#padMore').hidden = !f;
     $('#padSort').hidden = sel.kind === 'trash';
     $('#padSort').value = S.padSort;
-    var lb = $('#padLayout'), grid = S.padLayout !== 'list';
-    lb.innerHTML = grid ? PAD_ICON.list : PAD_ICON.grid;
-    lb.setAttribute('aria-label', grid ? '목록으로 보기' : '카드로 보기');
-    lb.title = grid ? '목록으로 보기' : '카드로 보기';
+    $('#padLayout').innerHTML = S.padLayout === 'list' ? PAD_ICON.list : PAD_ICON.grid;
+    padViewMenuPaint();
     $('#padTrashBar').hidden = sel.kind !== 'trash';
     $('#padEmptyTrash').disabled = !T.trash;
+    padSelPaint();
+  }
+  function padVisible() {   // 지금 화면에 보이는 메모 (찾기 · 정렬까지 한 것)
+    var q = S.pad.q.trim(), list = padScope();
+    if (q) {
+      var lq = q.toLowerCase();
+      list = list.filter(function (n) { return (n.title + '\n' + n.body).toLowerCase().indexOf(lq) >= 0; });
+    }
+    return padSorted(list);
   }
 
   /* ── 고르기 · 폴더 메뉴 ── */
   function padSelect(sel) {
-    padMenu(false);
+    padMenu(false); padViewMenu(false);
+    if (S.pad.selMode) padSelEnd();
     if (S.pad.open) { padCloseNote(); padPopOne(); S.pad.pane = 'list'; }
     S.pad.sel = sel;
     S.pad.q = ''; $('#padQ').value = '';
@@ -1132,7 +1190,7 @@
       }
     } else {
       var id = S.store.newPadId(), parent = PF.parent;
-      S.store.padCommit([{ kind: 'folder', op: 'set', id: id, data: { name: name, parent: parent, color: PF.color, created: now, updated: now } }]);
+      S.store.padCommit([{ kind: 'folder', op: 'set', id: id, data: { name: name, parent: parent, color: PF.color, created: now, updated: now, ord: padEndOrd(parent, '') } }]);
       if (parent && !padIsOpen(parent)) padOpenSet(parent, true);
       toast('‘' + name + '’ 폴더를 만들었습니다.');
     }
@@ -1144,7 +1202,14 @@
   function padPickOpen(what) {
     if (!padOk()) return;
     var T = S.pad.tree, cur, skip = {}, html = '';
-    if (what.kind === 'note') {
+    if (what.kind === 'notes') {   // 꾹 눌러 고른 메모 여러 개
+      var ns = (what.ids || []).map(padNote).filter(Boolean);
+      if (!ns.length) return;
+      var fs = ns.map(padNoteFolder);
+      cur = fs.every(function (x) { return x === fs[0]; }) ? fs[0] : null;
+      $('#ppTitle').textContent = '메모를 옮길 폴더 고르기';
+      $('#ppWhat').textContent = ns.length > 1 ? '고른 메모 ' + ns.length + '개' : '‘' + padTitleOf(ns[0]).slice(0, 40) + '’';
+    } else if (what.kind === 'note') {
       var n = what.id === PE.id ? peNote() : padNote(what.id);
       if (!n) return;
       cur = padFolder(n.folder) ? n.folder : '';
@@ -1160,7 +1225,7 @@
     }
     PP = what;
     html += '<button type="button" class="pp-row pp-root" data-dest=""' + (cur === '' ? ' disabled' : '') + '>' + PAD_ICON.root +
-      '<span>' + (what.kind === 'note' ? '폴더 없음' : '맨 위 (다른 폴더 밖)') + '</span>' + (cur === '' ? '<small>지금 있는 곳</small>' : '') + '</button>';
+      '<span>' + (what.kind !== 'folder' ? '폴더 없음' : '맨 위 (다른 폴더 밖)') + '</span>' + (cur === '' ? '<small>지금 있는 곳</small>' : '') + '</button>';
     (function rows(pid, lv) {
       (T.kids[pid] || []).forEach(function (x) {
         if (skip[x.id]) return;
@@ -1181,9 +1246,14 @@
     if (!fromPop && padSheetPushed) { padSheetPushed = false; padPopOne(); }
   }
   function padMoveTo(dest) {
-    var what = PP, now = Date.now(), name = dest ? (padFolder(dest) || {}).name : '';
+    var what = PP, name = dest ? (padFolder(dest) || {}).name : '';
     closePadPick();
     if (!what || !S.store || (dest && !padFolder(dest))) return;
+    if (what.kind === 'notes') {
+      padMoveNotes(what.ids || [], dest);
+      if (S.pad.selMode) padSelEnd();
+      return;
+    }
     if (what.kind === 'note') {
       if (what.id === PE.id) {
         PE.cur.folder = dest;
@@ -1192,11 +1262,33 @@
       } else S.store.padCommit([{ kind: 'note', op: 'update', id: what.id, data: { folder: dest } }]);
       toast(dest ? '‘' + name + '’ 폴더로 옮겼습니다.' : '폴더 밖(폴더 없음)으로 옮겼습니다.');
     } else {
-      if (dest === what.id || padDesc(what.id).indexOf(dest) >= 0) return;
-      S.store.padCommit([{ kind: 'folder', op: 'update', id: what.id, data: { parent: dest, updated: now } }]);
-      if (dest && !padIsOpen(dest)) padOpenSet(dest, true);
-      toast(dest ? '‘' + name + '’ 폴더 안으로 옮겼습니다.' : '맨 위로 옮겼습니다.');
+      padMoveFolder(what.id, dest);
     }
+  }
+  /* 메모 여러 개를 한 폴더로 (끌어서 놓기 · 고르기 막대의 '옮기기') */
+  function padMoveNotes(ids, dest) {
+    var name = dest ? (padFolder(dest) || {}).name : '';
+    var move = ids.filter(function (id) { var n = padNote(id); return n && padNoteFolder(n) !== dest; });
+    if (!move.length) { toast(dest ? '이미 ‘' + name + '’ 폴더에 있습니다.' : '이미 폴더 밖에 있습니다.'); return; }
+    S.store.padCommit(move.map(function (id) { return { kind: 'note', op: 'update', id: id, data: { folder: dest } }; }));
+    var cnt = move.length > 1 ? '메모 ' + move.length + '개를 ' : '';
+    toast(dest ? cnt + '‘' + name + '’ 폴더로 옮겼습니다.' : cnt + '폴더 밖(폴더 없음)으로 옮겼습니다.');
+  }
+  /* 폴더를 다른 폴더 안으로 (맨 끝에) · dest '' = 맨 위 */
+  function padMoveFolder(id, dest) {
+    var f = padFolder(id), name = dest ? (padFolder(dest) || {}).name : '';
+    if (!f || dest === id || padDesc(id).indexOf(dest) >= 0 || (dest && !padFolder(dest))) return false;
+    if ((S.pad.tree.parent[id] || '') === dest) return false;
+    S.store.padCommit([{ kind: 'folder', op: 'update', id: id, data: { parent: dest, updated: Date.now(), ord: padEndOrd(dest, id) } }]);
+    if (dest && !padIsOpen(dest)) padOpenSet(dest, true);
+    toast(dest ? '‘' + f.name + '’ 폴더를 ‘' + name + '’ 폴더 안으로 옮겼습니다.' : '‘' + f.name + '’ 폴더를 맨 위로 옮겼습니다.');
+    return true;
+  }
+  /* 새로 들어가는 폴더의 순서 값: 형제 폴더를 끌어서 정렬해 두었으면 맨 끝, 아니면 0(이름 순서) */
+  function padEndOrd(parent, self) {
+    var max = 0;
+    (S.pad.tree.kids[parent || ''] || []).forEach(function (x) { if (x.id !== self && x.ord > max) max = x.ord; });
+    return max > 0 ? max + 1 : 0;
   }
 
   /* ── 폴더 지우기: 하위 폴더도 함께, 안의 메모는 휴지통으로 (바로 뒤 '되돌리기'로 되살림) ── */
@@ -1212,7 +1304,7 @@
     if (!window.confirm(msg)) return;
     var now = Date.now(), up = S.pad.tree.parent[id] || '';
     var keep = ids.map(function (x) { return padFolder(x); }).filter(Boolean).map(function (x) {
-      return { id: x.id, name: x.name, parent: x.parent || '', color: x.color || '', created: x.created || now, updated: x.updated || now };
+      return { id: x.id, name: x.name, parent: x.parent || '', color: x.color || '', created: x.created || now, updated: x.updated || now, ord: x.ord || 0 };
     });
     var ops = inside.map(function (n) { return { kind: 'note', op: 'update', id: n.id, data: { trashed: now } }; });
     ids.forEach(function (x) { ops.push({ kind: 'folder', op: 'remove', id: x }); });
@@ -1222,7 +1314,7 @@
     toast('‘' + f.name + '’ 폴더를 지웠습니다.' + (inside.length ? ' 메모 ' + inside.length + '개는 휴지통에 있습니다.' : ''), null, {
       label: '되돌리기', fn: function () {
         if (!S.store || !padOk()) return;
-        var back = keep.map(function (x) { return { kind: 'folder', op: 'set', id: x.id, data: { name: x.name, parent: x.parent, color: x.color, created: x.created, updated: x.updated } }; });
+        var back = keep.map(function (x) { return { kind: 'folder', op: 'set', id: x.id, data: { name: x.name, parent: x.parent, color: x.color, created: x.created, updated: x.updated, ord: x.ord } }; });
         inside.forEach(function (n) { back.push({ kind: 'note', op: 'update', id: n.id, data: { trashed: 0 } }); });
         S.store.padCommit(back);
         toast('폴더를 되살렸습니다.');
@@ -1233,13 +1325,14 @@
     var list = S.pad.notes.filter(function (n) { return n.trashed; });
     if (!list.length || !S.store) return;
     if (!window.confirm('휴지통의 메모 ' + list.length + '개를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
-    S.store.padCommit(list.map(function (n) { return { kind: 'note', op: 'remove', id: n.id }; }));
+    padKillNotes(list.map(function (n) { return n.id; }));
     toast('휴지통을 비웠습니다.');
   }
 
   /* ── 메모 쓰기 ── */
-  /* 열린 메모: id · exists(저장됨) · seen(목록에서 한 번이라도 봄) · cur(화면에 열린 메모의 가장 새 내용 — 방금 저장한 것이 목록에 오기 전에도 그대로) · dirty(아직 저장 안 한 고침) */
-  function peBlank() { return { id: '', exists: false, seen: false, cur: null, dirty: false, timer: null, state: '' }; }
+  /* 열린 메모: id · exists(저장됨) · seen(목록에서 한 번이라도 봄) · cur(화면에 열린 메모의 가장 새 내용 — 방금 저장한 것이 목록에 오기 전에도 그대로) · dirty(아직 저장 안 한 고침)
+     known: 이 메모에서 본 그림 id (닫을 때 내용에서 지운 그림은 저장 공간에서도 지움) · busy: 그림을 넣는 중인 수 */
+  function peBlank() { return { id: '', exists: false, seen: false, cur: null, dirty: false, timer: null, state: '', known: {}, busy: 0 }; }
   var PE = peBlank(), peRange = null;
   function peNote() { return PE.id ? PE.cur : null; }
   function peFocused() { var a = document.activeElement; return !!a && (a.id === 'peTitle' || a.id === 'peBody' || $('#peBody').contains(a)); }
@@ -1249,6 +1342,7 @@
     padMenu(false);
     S.pad.open = id;
     PE = peBlank(); PE.id = id; PE.exists = true; PE.seen = true; PE.cur = Object.assign({}, n);
+    (n.imgs || []).forEach(function (x) { PE.known[x] = 1; });
     padFillEditor(n, true);
     padSetPane('note');
     renderPad();
@@ -1262,7 +1356,8 @@
     var sel = S.pad.sel, now = Date.now();
     PE = peBlank();
     PE.id = S.store.newPadId();
-    PE.cur = { id: PE.id, folder: sel.kind === 'folder' && padFolder(sel.id) ? sel.id : '', title: '', body: '', bodyHtml: '', fav: sel.kind === 'fav', trashed: 0, created: now, updated: now };
+    PE.cur = { id: PE.id, folder: sel.kind === 'folder' && padFolder(sel.id) ? sel.id : '', title: '', body: '', bodyHtml: '', fav: sel.kind === 'fav', trashed: 0, created: now, updated: now,
+      ord: padNewOrd(), imgs: [], thumb: '', thumbId: '' };
     S.pad.open = PE.id;
     padFillEditor(PE.cur, true);
     if (S.pad.pane === 'side') padSetPane('list');   // 폴더 목록에서 바로 쓴 메모는 닫으면 메모 목록으로
@@ -1274,8 +1369,11 @@
   function padFillEditor(n, force) {
     var t = $('#peTitle'), ed = $('#peBody');
     if (force || t.value !== (n.title || '')) t.value = n.title || '';
-    var html = rtHtml(padLines(n));
-    if (force || rtHtml(rtFromDom(ed)) !== html) { ed.innerHTML = html; peRange = null; }
+    var lines = padLines(n), have = {};
+    rtImgs(lines).forEach(function (x) { have[x] = 1; });
+    (n.imgs || []).forEach(function (x) { if (!have[x]) lines.push([{ t: '', b: false, img: x, w: 0, h: 0 }]); });   // 예전 버전 앱이 고치며 빠뜨린 그림은 끝에 다시 붙임
+    var html = rtHtml(lines);
+    if (force || rtHtml(rtFromDom(ed, { img: true })) !== html) { ed.innerHTML = html; peRange = null; peHydrate(ed); }
     ed.classList.toggle('is-empty', notesLooksEmpty(ed));
     padFillMeta(n);
   }
@@ -1288,7 +1386,7 @@
     fb.setAttribute('aria-pressed', n.fav ? 'true' : 'false');
     fb.setAttribute('aria-label', n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기');
     fb.title = n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기';
-    fb.hidden = trashed; $('#peDel').hidden = trashed; $('#peBold').hidden = trashed;
+    fb.hidden = trashed; $('#peDel').hidden = trashed; $('#peBold').hidden = trashed; $('#peImg').hidden = trashed;
     $('#peTrash').hidden = !trashed;
     $('#peTitle').readOnly = trashed;
     $('#peBody').setAttribute('contenteditable', trashed ? 'false' : 'true');
@@ -1300,6 +1398,7 @@
     if (state !== undefined) PE.state = state;
     var txt = !PE.exists ? '새 메모' : '고친 날 ' + padWhenFull(n.updated) + (n.created && padWhenFull(n.created) !== padWhenFull(n.updated) ? ' · 만든 날 ' + padWhenFull(n.created) : '');
     if (n.trashed) txt += ' · 휴지통에 넣은 날 ' + padWhenFull(n.trashed);
+    else if (PE.busy) txt += ' · 그림 넣는 중…';
     else if (PE.state) txt += ' · ' + PE.state;
     $('#peMeta').textContent = txt;
   }
@@ -1319,34 +1418,53 @@
     var n = peNote();
     PE.dirty = false;
     if (!n || n.trashed) return;
-    var title = $('#peTitle').value.slice(0, PAD_TITLE_MAX), lines = rtFromDom($('#peBody')), body = rtText(lines);
-    var html = rtHasBold(lines) ? rtHtml(lines) : '', cut = false;
+    var title = $('#peTitle').value.slice(0, PAD_TITLE_MAX), lines = rtFromDom($('#peBody'), { img: true }), body = rtText(lines);
+    var imgs = rtImgs(lines).slice(0, 300), html = rtHasBold(lines) || imgs.length ? rtHtml(lines) : '', cut = false;
     if (body.length > PAD_BODY_MAX) { body = body.slice(0, PAD_BODY_MAX); html = ''; cut = true; }
     if (html.length > PAD_HTML_MAX) html = '';
-    var now = Date.now();
+    imgs.forEach(function (x) { PE.known[x] = 1; });
+    var th = padThumbFor(n, imgs), now = Date.now();
     if (!PE.exists) {
-      if (!title.trim() && !body.trim()) { peMeta(n, ''); return; }   // 아직 아무것도 적지 않은 새 메모는 저장하지 않음
-      S.store.padCommit([{ kind: 'note', op: 'set', id: PE.id, data: { folder: n.folder, title: title, body: body, bodyHtml: html, fav: n.fav, trashed: 0, created: n.created, updated: now } }]);
+      if (!title.trim() && !body.trim() && !imgs.length) { peMeta(n, ''); return; }   // 아직 아무것도 적지 않은 새 메모는 저장하지 않음
+      S.store.padCommit([{ kind: 'note', op: 'set', id: PE.id, data: { folder: n.folder, title: title, body: body, bodyHtml: html, fav: n.fav, trashed: 0, created: n.created, updated: now,
+        ord: typeof n.ord === 'number' ? n.ord : padNewOrd(), imgs: imgs, thumb: th.thumb, thumbId: th.thumbId } }]);
       PE.exists = true;
     } else {
-      if (title === n.title && body === n.body && html === (n.bodyHtml || '')) { peMeta(n, '저장됨'); return; }
-      S.store.padCommit([{ kind: 'note', op: 'update', id: PE.id, data: { title: title, body: body, bodyHtml: html, updated: now } }]);
+      var sameImgs = imgs.join(',') === (n.imgs || []).join(',') && th.thumbId === (n.thumbId || '');
+      if (title === n.title && body === n.body && html === (n.bodyHtml || '') && sameImgs) { peMeta(n, '저장됨'); return; }
+      var up = { title: title, body: body, bodyHtml: html, updated: now };
+      if (!sameImgs) { up.imgs = imgs; up.thumb = th.thumb; up.thumbId = th.thumbId; }
+      S.store.padCommit([{ kind: 'note', op: 'update', id: PE.id, data: up }]);
     }
-    PE.cur = Object.assign({}, n, { title: title, body: body, bodyHtml: html, updated: now });
+    PE.cur = Object.assign({}, n, { title: title, body: body, bodyHtml: html, updated: now, imgs: imgs, thumb: th.thumb, thumbId: th.thumbId });
     peMeta(PE.cur, '저장됨');
     if (cut) toast('메모가 너무 길어 뒷부분은 저장되지 않았습니다. (10만 자까지)', 'error', null, 6000);
   }
-  /* 메모를 닫을 때: 저장하고, 제목과 내용을 모두 비운 메모는 남기지 않음 */
+  /* 메모를 닫을 때: 저장하고, 제목과 내용을 모두 비운 메모는 남기지 않음. 내용에서 지운 그림은 저장 공간에서도 지움 */
   function padCloseNote() {
     if (!S.pad.open) return;
     peSave();
-    var n = PE.exists ? PE.cur : null;
-    if (n && !n.trashed && S.store && !$('#peTitle').value.trim() && !rtText(rtFromDom($('#peBody'))).trim()) {
+    var n = PE.exists ? PE.cur : null, keep = peKeepImgs();
+    if (n && !n.trashed && S.store && peIsEmpty()) {
       S.store.padCommit([{ kind: 'note', op: 'remove', id: PE.id }]);
+      keep = [];
     }
+    if (!n && !PE.exists) keep = [];   // 저장하지 않은 새 메모에 넣었던 그림
+    peDropImgs(keep);
+    padSaveMenu(false);
     S.pad.open = null; PE = peBlank();
     var a = document.activeElement;
     if (a && (a.id === 'peTitle' || a.id === 'peBody')) a.blur();
+  }
+  function peIsEmpty() {
+    var lines = rtFromDom($('#peBody'), { img: true });
+    return !$('#peTitle').value.trim() && !rtText(lines).trim() && !rtImgs(lines).length;
+  }
+  function peKeepImgs() { return rtImgs(rtFromDom($('#peBody'), { img: true })); }
+  function peDropImgs(keep) {   // 이 메모에서 본 그림 가운데 keep에 없는 것을 지움
+    var k = {};
+    (keep || []).forEach(function (x) { k[x] = 1; });
+    padImgDrop(Object.keys(PE.known || {}).filter(function (x) { return !k[x]; }), [PE.id]);   // 다른 메모가 함께 쓰는 그림은 남김
   }
   /* 다른 기기에서 바뀐 내용: 적는 중이 아니면 화면에 반영, 메모가 지워졌으면 닫음 */
   function padSyncEditor() {
@@ -1360,8 +1478,9 @@
       return;
     }
     PE.seen = true;
-    if ((n.updated || 0) >= (PE.cur.updated || 0) && !PE.dirty && !peFocused()) { PE.cur = Object.assign({}, n); padFillEditor(n, false); }
-    else { PE.cur.folder = n.folder; PE.cur.fav = n.fav; PE.cur.trashed = n.trashed; padFillMeta(PE.cur); }
+    (n.imgs || []).forEach(function (x) { PE.known[x] = 1; });
+    if ((n.updated || 0) >= (PE.cur.updated || 0) && !PE.dirty && !peFocused() && !PE.busy) { PE.cur = Object.assign({}, n); padFillEditor(n, false); }
+    else { PE.cur.folder = n.folder; PE.cur.fav = n.fav; PE.cur.trashed = n.trashed; PE.cur.ord = n.ord; padFillMeta(PE.cur); }
   }
   function peFav() {
     var n = peNote();
@@ -1376,8 +1495,10 @@
     var n = peNote();
     if (!n || !S.store) return;
     peSave();
-    var id = PE.id, existed = PE.exists, empty = !$('#peTitle').value.trim() && !rtText(rtFromDom($('#peBody'))).trim();
+    var id = PE.id, existed = PE.exists, empty = peIsEmpty();
     clearTimeout(PE.timer);
+    peDropImgs(existed && !empty ? peKeepImgs() : []);
+    padSaveMenu(false);
     S.pad.open = null; PE = peBlank();
     S.pad.pane = 'list'; padPopOne();
     if (!existed) { renderPad(); return; }   // 아직 저장하지 않은 새 메모: 그냥 닫음
@@ -1401,6 +1522,9 @@
     if (!window.confirm('이 메모를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
     var id = n.id;
     clearTimeout(PE.timer);
+    (n.imgs || []).forEach(function (x) { PE.known[x] = 1; });
+    peDropImgs([]);
+    padSaveMenu(false);
     S.pad.open = null; PE = peBlank();
     S.pad.pane = 'list'; padPopOne();
     S.store.padCommit([{ kind: 'note', op: 'remove', id: id }]);
@@ -1429,8 +1553,985 @@
     peBoldState();
   }
 
+  /* ───────── 메모장 v1.12: 순서 · 꾹 눌러 고르기 · 끌어서 옮기기 · 보기 메뉴 · 메모 속 그림 · 파일로 저장 ───────── */
+
+  /* 새 메모의 순서 값: 지금 있는 어떤 메모보다 앞 ('직접 정한 순서'에서 새 메모가 맨 앞에 오도록) */
+  function padNewOrd() {
+    var m = -Date.now();
+    S.pad.notes.forEach(function (n) { if (n.ord - 1 < m) m = n.ord - 1; });
+    return m;
+  }
+
+  /* ── 보기 방식 · 격자 크기 메뉴 ── */
+  function padViewMenu(on) {
+    var m = $('#padViewMenu');
+    if (!m) return;
+    m.hidden = !on;
+    $('#padLayout').setAttribute('aria-expanded', on ? 'true' : 'false');
+    if (on) { padMenu(false); padViewMenuPaint(); }
+  }
+  function padViewMenuPaint() {
+    var grid = S.padLayout !== 'list';
+    $$('#padViewMenu [data-layout]').forEach(function (b) {
+      var on = b.dataset.layout === S.padLayout;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $$('#padViewMenu [data-gsize]').forEach(function (b) {
+      var on = grid && +b.dataset.gsize === S.padGrid;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.disabled = !grid;
+    });
+  }
+  function padSetLayout(v) {
+    S.padLayout = v === 'list' ? 'list' : 'grid';
+    writePref('padLayout', S.padLayout);
+    renderPadList();
+  }
+  function padSetGrid(n) {
+    S.padGrid = Math.min(4, Math.max(1, n | 0 || 2));
+    writePref('padGrid', String(S.padGrid));
+    renderPadList();
+  }
+
+  /* ── 꾹 눌러 고르기: 메모를 꾹 누르면(마우스는 0.5초 누르고 있거나 오른쪽 단추) 고르기 막대(삭제 · 옮기기)가 나옴 ── */
+  var padSelPushed = false;   // 휴대폰 '뒤로'로 고르기만 끝나게 쌓은 기록이 있는지
+  function padPickedIds() {   // 고른 메모 (화면에 보이는 순서대로)
+    var P = S.pad;
+    return padVisible().filter(function (n) { return P.picked[n.id]; }).map(function (n) { return n.id; });
+  }
+  function padSelStart(id) {
+    var P = S.pad;
+    if (!padNote(id) || P.open) return;
+    if (!P.selMode) {
+      P.selMode = true; P.picked = {};
+      padMenu(false); padViewMenu(false);
+      if (!padSelPushed) { try { history.pushState({ padSel: 1 }, ''); padHist++; padSelPushed = true; } catch (e) { /* 뒤로 가기 없이 */ } }
+    }
+    P.picked[id] = true;
+    padSelPaint();
+  }
+  function padSelToggle(id) {
+    var P = S.pad;
+    if (P.picked[id]) delete P.picked[id]; else P.picked[id] = true;
+    if (!padPickedIds().length) { padSelEnd(); return; }
+    padSelPaint();
+  }
+  function padSelEnd(fromPop) {
+    var P = S.pad;
+    if (fromPop) padSelPushed = false;
+    if (!P.selMode) return;
+    P.selMode = false; P.picked = {};
+    if (!fromPop && padSelPushed) { padSelPushed = false; padPopOne(); }
+    renderPad();
+  }
+  /* 목록을 다시 그리지 않고 고른 표시만 바꿈 (꾹 누른 손가락이 그대로 끌기로 이어지도록) */
+  function padSelPaint() {
+    var P = S.pad, trash = P.sel.kind === 'trash', box = $('#padList');
+    if (!box) return;
+    box.classList.toggle('selecting', P.selMode);
+    $$('#padList .pcard').forEach(function (c) {
+      var on = P.selMode && !!P.picked[c.dataset.note];
+      c.classList.toggle('picked', on);
+      if (P.selMode) c.setAttribute('aria-pressed', on ? 'true' : 'false'); else c.removeAttribute('aria-pressed');
+    });
+    $('#padSelBar').hidden = !P.selMode;
+    $('#padBar').hidden = P.selMode;
+    padFabPaint();
+    if (!P.selMode) return;
+    var ids = padPickedIds(), all = padVisible().length;
+    $('#psCount').textContent = ids.length + '개 선택';
+    $('#psAll').textContent = ids.length >= all ? '선택 해제' : '모두 선택';
+    $('#psMove').hidden = trash;
+    $('#psRestore').hidden = !trash;
+    $('#psDel span').textContent = trash ? '완전히 지우기' : '삭제';
+  }
+  function padSelAll() {
+    var P = S.pad, list = padVisible();
+    if (padPickedIds().length >= list.length) { padSelEnd(); return; }
+    list.forEach(function (n) { P.picked[n.id] = true; });
+    padSelPaint();
+  }
+  function padSelDelete() {
+    var ids = padPickedIds();
+    if (!ids.length || !S.store) return;
+    if (S.pad.sel.kind === 'trash') {
+      if (!window.confirm('고른 메모 ' + ids.length + '개를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
+      padKillNotes(ids);
+      padSelEnd();
+      toast('메모 ' + ids.length + '개를 완전히 지웠습니다.');
+      return;
+    }
+    padSelEnd();
+    padTrashNotes(ids);
+  }
+  function padSelRestore() {
+    var ids = padPickedIds();
+    if (!ids.length || !S.store) return;
+    S.store.padCommit(ids.map(function (id) {
+      var n = padNote(id);
+      return { kind: 'note', op: 'update', id: id, data: { trashed: 0, folder: n && padFolder(n.folder) ? n.folder : '' } };
+    }));
+    padSelEnd();
+    toast(ids.length > 1 ? '메모 ' + ids.length + '개를 복원했습니다.' : '복원했습니다.');
+  }
+  function padSelMove() {
+    var ids = padPickedIds();
+    if (ids.length) padPickOpen({ kind: 'notes', ids: ids });
+  }
+  function padTrashNotes(ids) {   // 휴지통으로 (바로 뒤 '되돌리기'로 되살림)
+    var now = Date.now();
+    S.store.padCommit(ids.map(function (id) { return { kind: 'note', op: 'update', id: id, data: { trashed: now } }; }));
+    toast(ids.length > 1 ? '메모 ' + ids.length + '개를 휴지통으로 옮겼습니다.' : '휴지통으로 옮겼습니다.', null, {
+      label: '되돌리기', fn: function () {
+        if (S.store && padOk()) S.store.padCommit(ids.map(function (id) { return { kind: 'note', op: 'update', id: id, data: { trashed: 0 } }; }));
+      }
+    });
+  }
+  function padKillNotes(ids) {   // 완전히 지우기 (메모 속 그림도 함께)
+    var imgs = [];
+    ids.forEach(function (id) { var n = padNote(id); if (n) imgs = imgs.concat(n.imgs || []); });
+    S.store.padCommit(ids.map(function (id) { return { kind: 'note', op: 'remove', id: id }; }));
+    padImgDrop(imgs, ids);
+  }
+
+  /* ── 끌어서 옮기기 ──
+     메모: 다른 메모 사이에 놓으면 순서가 바뀜('직접 정한 순서'), 폴더(왼쪽 폴더 목록 · 하위 폴더 칸)에 놓으면 그 폴더로,
+           즐겨찾기에 놓으면 즐겨찾기, 휴지통에 놓으면 휴지통으로.
+     폴더: 다른 폴더의 위·아래에 놓으면 순서가 바뀌고, 가운데에 놓으면 그 폴더 안으로, '폴더' 제목 줄에 놓으면 맨 위로.
+     마우스는 누른 채 움직이면 바로 끌기, 손가락은 꾹 누른 뒤 움직이면 끌기 (꾹 누르기 전에 움직이면 화면 넘기기) */
+  var DD = null;   // 끄는 중 { kind, id, ids, el, ghost, ox, oy, x, y, target, hoverId, hoverT, raf }
+  var LP = null;   // 누르는 중(아직 끌기 전) { kind, id, el, x0, y0, timer, touch, fired, pid, node }
+  var padRenderLater = false, padClickBlock = 0;
+  var PAD_LP_MOUSE = 550, PAD_LP_TOUCH = 450;
+  function padDragSrc(t) {
+    if (!t || !t.closest || S.pad.open) return null;
+    var c = t.closest('#padList .pcard');
+    if (c && c.dataset.note) return { kind: 'note', id: c.dataset.note, el: c };
+    var r = t.closest('#padTree .pt-row');
+    if (r && !t.closest('[data-toggle]')) {   // 펼치기 단추만 빼고 줄 어디서나 끌 수 있음
+      var nb = r.querySelector('.pt-name');
+      if (nb && nb.dataset.folder) return { kind: 'folder', id: nb.dataset.folder, el: r };
+    }
+    return null;
+  }
+  function padCanDrag(src) {
+    if (!src || !S.store || !padOk()) return false;
+    if (src.kind === 'note') return S.pad.sel.kind !== 'trash' && !!padNote(src.id);
+    return !!padFolder(src.id);
+  }
+  function padCanReorder() { return S.pad.sel.kind !== 'trash' && !S.pad.q.trim(); }
+  function padLPCancel() {
+    if (!LP) return;
+    clearTimeout(LP.timer);
+    if (LP.el) LP.el.classList.remove('lifted');
+    padUnbindTouch(LP);
+    LP = null;
+    if (padRenderLater && !DD) { padRenderLater = false; renderPad(); }
+  }
+  function padLongPress() {
+    if (!LP) return;
+    LP.fired = true;
+    if (LP.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (e) { /* 무시 */ } }
+    padClickBlock = Date.now() + 400;
+    if (LP.kind === 'note') padSelStart(LP.id);
+    else if (LP.el) LP.el.classList.add('lifted');
+  }
+  /* 마우스 · 펜 */
+  function padPDown(e) {
+    if (e.pointerType === 'touch' || e.button !== 0 || DD) return;
+    var s = padDragSrc(e.target);
+    if (!s) return;
+    padLPCancel();
+    LP = { kind: s.kind, id: s.id, el: s.el, x0: e.clientX, y0: e.clientY, pid: e.pointerId, touch: false, fired: false };
+    if (s.kind === 'note') LP.timer = setTimeout(padLongPress, PAD_LP_MOUSE);
+  }
+  function padPMove(e) {
+    if (e.pointerType === 'touch') return;
+    if (DD && !DD.touch) { e.preventDefault(); padDragMove(e.clientX, e.clientY); return; }
+    if (!LP || LP.touch || e.pointerId !== LP.pid) return;
+    if (Math.abs(e.clientX - LP.x0) + Math.abs(e.clientY - LP.y0) > 6) {
+      clearTimeout(LP.timer);
+      var src = LP;
+      if (padCanDrag(src)) padDragStart(src, e.clientX, e.clientY); else padLPCancel();
+    }
+  }
+  function padPUp(e) {
+    if (e.pointerType === 'touch') return;
+    if (DD && !DD.touch) { padDragEnd(e.type === 'pointerup'); return; }
+    if (LP && !LP.touch) {
+      if (LP.fired) padClickBlock = Date.now() + 250;   // 꾹 누른 뒤 손을 뗄 때 따라오는 click으로 다시 풀리지 않게
+      padLPCancel();
+    }
+  }
+  /* 손가락: 꾹 누른 뒤에는 화면이 넘어가지 않게 (touchmove를 손가락이 처음 닿은 곳에 직접 걸어 둠 — 목록을 다시 그려도 끊기지 않게) */
+  function padTStart(e) {
+    if (DD) return;
+    if (e.touches.length !== 1) { padLPCancel(); return; }
+    var s = padDragSrc(e.target);
+    if (!s) return;
+    padLPCancel();
+    var t = e.touches[0], node = e.target;
+    LP = { kind: s.kind, id: s.id, el: s.el, x0: t.clientX, y0: t.clientY, touch: true, fired: false, node: node };
+    LP.mv = function (ev) { padTMove(ev); };
+    LP.up = function (ev) { padTEnd(ev, false); };
+    LP.cc = function (ev) { padTEnd(ev, true); };
+    node.addEventListener('touchmove', LP.mv, { passive: false });
+    node.addEventListener('touchend', LP.up);
+    node.addEventListener('touchcancel', LP.cc);
+    LP.timer = setTimeout(padLongPress, PAD_LP_TOUCH);
+  }
+  function padUnbindTouch(o) {
+    if (!o || !o.node || !o.mv) return;
+    o.node.removeEventListener('touchmove', o.mv, { passive: false });
+    o.node.removeEventListener('touchend', o.up);
+    o.node.removeEventListener('touchcancel', o.cc);
+    o.mv = null;
+  }
+  function padTMove(e) {
+    var t = e.touches && e.touches[0];
+    if (!t) return;
+    if (DD && DD.touch) { if (e.cancelable) e.preventDefault(); padDragMove(t.clientX, t.clientY); return; }
+    if (!LP || !LP.touch) return;
+    var d = Math.abs(t.clientX - LP.x0) + Math.abs(t.clientY - LP.y0);
+    if (!LP.fired) { if (d > 10) padLPCancel(); return; }   // 꾹 누르기 전에 움직이면: 화면 넘기기
+    if (e.cancelable) e.preventDefault();                    // 꾹 누른 뒤 움직이면: 끌기
+    if (d > 8 && padCanDrag(LP)) padDragStart(LP, t.clientX, t.clientY);
+  }
+  function padTEnd(e, cancel) {
+    if (DD && DD.touch) { if (e.cancelable) e.preventDefault(); padDragEnd(!cancel); return; }
+    if (LP && LP.touch) {
+      if (LP.fired && e.cancelable) e.preventDefault();   // 꾹 누른 뒤 손을 떼면 그 메모가 열리지 않게
+      var keep = LP.kind === 'note' && LP.fired;
+      padLPCancel();
+      if (keep) padClickBlock = Date.now() + 250;   // 손을 뗀 바로 뒤의 click만 무시 (다른 메모를 곧바로 눌러 고를 수 있게)
+    }
+  }
+  function padDragStart(src, x, y) {
+    var el = src.kind === 'note' ? $('#padList .pcard[data-note="' + src.id + '"]') : padTreeRow(src.id);
+    if (!el) { padLPCancel(); return; }
+    clearTimeout(src.timer);
+    var r = el.getBoundingClientRect(), ids = [src.id];
+    if (src.kind === 'note' && S.pad.selMode && S.pad.picked[src.id]) ids = padPickedIds();   // 고른 메모 여럿을 한꺼번에
+    if (!ids.length) ids = [src.id];
+    var g = el.cloneNode(true);
+    g.classList.add('pad-ghost'); g.classList.remove('pad-drop', 'lifted', 'on');
+    g.removeAttribute('id'); g.setAttribute('aria-hidden', 'true');
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    if (ids.length > 1) g.insertAdjacentHTML('beforeend', '<span class="pg-n">' + ids.length + '</span>');
+    document.body.appendChild(g);
+    DD = { kind: src.kind, id: src.id, ids: ids, el: el, ghost: g, ox: x - r.left, oy: y - r.top, x: x, y: y, touch: !!src.touch, target: null, hoverId: '', hoverT: null, raf: 0, node: src.node, mv: src.mv, up: src.up, cc: src.cc };
+    if (src.touch) { src.mv = null; }   // 손가락 이벤트는 그대로 DD가 이어받음 (padUnbindTouch는 끝날 때)
+    LP = null;
+    el.classList.add('pad-dragsrc'); el.classList.remove('lifted');
+    document.documentElement.classList.add('pad-dragging');
+    padMenu(false); padViewMenu(false);
+    padDragMove(x, y);
+    padAutoScroll();
+  }
+  function padTreeRow(id) {
+    var b = $('#padTree .pt-name[data-folder="' + id + '"]');
+    return b ? b.closest('.pt-row') : null;
+  }
+  function padDragMove(x, y) {
+    if (!DD) return;
+    DD.x = x; DD.y = y;
+    DD.ghost.style.transform = 'translate(' + Math.round(x - DD.ox) + 'px,' + Math.round(y - DD.oy) + 'px)';
+    var t = padDropAt(x, y);
+    DD.target = t;
+    padDropShow(t);
+    padHoverExpand(t);
+  }
+  /* 손가락·마우스 아래에 무엇이 있는지: 놓을 수 있는 곳이면 { type, ... } */
+  function padDropAt(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el || !DD) return null;
+    var tree = $('#padTree');
+    if (DD.kind === 'note') {
+      var fo = el.closest('#padTree .pt-row, #padSubs .psub[data-folder]');
+      if (fo) {
+        var fid = fo.classList.contains('psub') ? fo.dataset.folder : (fo.querySelector('.pt-name') || {}).dataset.folder;
+        if (fid && padFolder(fid)) return { type: 'into', folder: fid, el: fo.classList.contains('psub') ? fo : fo.querySelector('.pt-name') };
+      }
+      var nav = el.closest('.pn[data-pad]');
+      if (nav && (nav.dataset.pad === 'trash' || nav.dataset.pad === 'fav')) return { type: nav.dataset.pad, el: nav };
+      if (DD.ids.length === 1 && padCanReorder() && el.closest('#padList')) {
+        var cards = $$('#padList .pcard').filter(function (c) { return c.dataset.note !== DD.id; });
+        if (!cards.length) return null;
+        var card = el.closest('.pcard'), grid = S.padLayout !== 'list';
+        if (card && card.dataset.note === DD.id) return null;   // 제자리 위: 그대로 둠
+        if (!card) card = padNearestCard(cards, x, y);          // 카드 사이 빈 곳: 가장 가까운 카드 옆
+        if (!card) return null;
+        var r = card.getBoundingClientRect();
+        var after = grid ? (y > r.bottom ? true : y < r.top ? false : x > r.left + r.width / 2) : y > r.top + r.height / 2;
+        return { type: 'order', ref: card.dataset.note, after: after, el: card };
+      }
+      return null;
+    }
+    // 폴더 끌기
+    var row = el.closest('#padTree .pt-row');
+    if (row && tree.contains(row)) {
+      var nb = row.querySelector('.pt-name'), id = nb && nb.dataset.folder;
+      if (!id || id === DD.id || padDesc(DD.id).indexOf(id) >= 0) return null;   // 자기 자신이나 그 안으로는 못 옮김
+      var rr = row.getBoundingClientRect(), rel = (y - rr.top) / Math.max(1, rr.height);
+      var openKids = padIsOpen(id) && (S.pad.tree.kids[id] || []).length;
+      var mode = rel < 0.28 ? 'before' : (rel > 0.72 && !openKids) ? 'after' : 'into';
+      return { type: 'f-' + mode, folder: id, el: mode === 'into' ? nb : row };
+    }
+    if (el.closest('.pad-fhead')) return { type: 'f-root', el: $('.pad-fhead') };
+    var tile = el.closest('#padSubs .psub[data-folder]');
+    if (tile && tile.dataset.folder !== DD.id && padDesc(DD.id).indexOf(tile.dataset.folder) < 0) return { type: 'f-into', folder: tile.dataset.folder, el: tile };
+    return null;
+  }
+  function padNearestCard(cards, x, y) {   // 카드 사이 빈 곳: 가장 가까운 카드
+    var best = null, bd = Infinity;
+    cards.forEach(function (c) {
+      var r = c.getBoundingClientRect(), dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0, dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = c; }
+    });
+    return bd < 160 * 160 ? best : null;
+  }
+  var padDropEl = null;
+  function padDropShow(t) {
+    $$('.pad-drop').forEach(function (x) { x.classList.remove('pad-drop'); });
+    var line = $('#padDropLine');
+    if (!t) { if (line) line.hidden = true; return; }
+    var lineMode = t.type === 'order' || t.type === 'f-before' || t.type === 'f-after';
+    if (!lineMode) { t.el.classList.add('pad-drop'); if (line) line.hidden = true; return; }
+    if (!line) { line = document.createElement('div'); line.id = 'padDropLine'; line.className = 'pad-dropline'; document.body.appendChild(line); }
+    var r = t.el.getBoundingClientRect(), st = line.style;
+    if (t.type === 'order' && S.padLayout !== 'list') {   // 격자: 카드 왼쪽·오른쪽에 세로 막대
+      var gap = 5, xx = t.after ? r.right + gap : r.left - gap - 4;
+      st.left = Math.round(xx) + 'px'; st.top = Math.round(r.top) + 'px'; st.width = '4px'; st.height = Math.round(r.height) + 'px';
+    } else {   // 목록 · 폴더: 위·아래에 가로 막대
+      var yy = (t.type === 'order' ? t.after : t.type === 'f-after') ? r.bottom - 2 : r.top - 2;
+      var left = r.left;
+      if (t.type !== 'order') { var nm = t.el.querySelector('.pt-name'); if (nm) left = nm.getBoundingClientRect().left; }
+      st.left = Math.round(left) + 'px'; st.top = Math.round(yy) + 'px'; st.width = Math.round(r.right - left) + 'px'; st.height = '4px';
+    }
+    line.hidden = false;
+  }
+  /* 접힌 폴더 위에 잠시 머무르면 펼침 (그 안의 하위 폴더에 놓을 수 있게) */
+  function padHoverExpand(t) {
+    var id = t && (t.type === 'into' || t.type === 'f-into') && t.folder ? t.folder : '';
+    if (id === (DD && DD.hoverId)) return;
+    if (!DD) return;
+    clearTimeout(DD.hoverT);
+    DD.hoverId = id;
+    if (!id || padIsOpen(id) || !(S.pad.tree.kids[id] || []).length || !$('#padTree').contains(t.el)) return;
+    DD.hoverT = setTimeout(function () {
+      if (!DD || DD.hoverId !== id) return;
+      padOpenSet(id, true);
+      renderPadSide();
+      if (DD.kind === 'folder') { var row = padTreeRow(DD.id); if (row) row.classList.add('pad-dragsrc'); }
+      padDragMove(DD.x, DD.y);
+    }, 700);
+  }
+  /* 화면 위·아래 끝으로 끌면 저절로 넘어감 */
+  function padAutoScroll() {
+    if (!DD) return;
+    var bar = DD.kind === 'note' ? $('#padBar') : null, top = 70;
+    if (bar && !bar.hidden) top = Math.max(top, bar.getBoundingClientRect().bottom + 30);
+    else { var sb = $('#padSelBar'); if (sb && !sb.hidden) top = Math.max(top, sb.getBoundingClientRect().bottom + 30); }
+    var h = window.innerHeight, v = 0;
+    if (DD.y < top) v = -Math.min(22, Math.ceil((top - DD.y) / 4) + 2);
+    else if (DD.y > h - 60) v = Math.min(22, Math.ceil((DD.y - (h - 60)) / 4) + 2);
+    if (v) {
+      var before = window.scrollY;
+      window.scrollBy(0, v);
+      if (window.scrollY !== before) padDragMove(DD.x, DD.y);
+    }
+    DD.raf = requestAnimationFrame(padAutoScroll);
+  }
+  function padDragEnd(apply) {
+    var d = DD;
+    if (!d) return;
+    DD = null;
+    cancelAnimationFrame(d.raf); clearTimeout(d.hoverT);
+    padDropShow(null);
+    if (d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+    $$('.pad-dragsrc').forEach(function (x) { x.classList.remove('pad-dragsrc'); });
+    document.documentElement.classList.remove('pad-dragging');
+    padUnbindTouch(d);
+    padClickBlock = Date.now() + 250;   // 손을 뗄 때 바로 따라오는 click만 무시
+    var t = apply ? d.target : null, done = false;
+    if (t) { try { done = padDropApply(d, t); } catch (e) { done = false; } }
+    if (padRenderLater || done) { padRenderLater = false; renderPad(); }
+  }
+  function padDropApply(d, t) {
+    if (!S.store || !padOk()) return false;
+    if (d.kind === 'note') {
+      if (t.type === 'into') { padMoveNotes(d.ids, t.folder); if (S.pad.selMode) padSelEnd(); return true; }
+      if (t.type === 'trash') { if (S.pad.selMode) padSelEnd(); padTrashNotes(d.ids); return true; }
+      if (t.type === 'fav') {
+        var add = d.ids.filter(function (id) { var n = padNote(id); return n && !n.fav; });
+        if (add.length) S.store.padCommit(add.map(function (id) { return { kind: 'note', op: 'update', id: id, data: { fav: true } }; }));
+        toast(add.length ? (d.ids.length > 1 ? '메모 ' + add.length + '개를 ' : '') + '즐겨찾기에 넣었습니다.' : '이미 즐겨찾기에 있습니다.');
+        if (S.pad.selMode) padSelEnd();
+        return true;
+      }
+      if (t.type === 'order') { var ok = padReorder(d.id, t.ref, t.after); if (ok && S.pad.selMode) padSelEnd(); return ok; }
+      return false;
+    }
+    if (t.type === 'f-into') return padMoveFolder(d.id, t.folder);
+    if (t.type === 'f-root') return padMoveFolder(d.id, '');
+    if (t.type === 'f-before' || t.type === 'f-after') return padFolderPlace(d.id, t.folder, t.type === 'f-after');
+    return false;
+  }
+  /* 메모 순서 바꾸기: 정렬이 '직접 정한 순서'가 아니면, 지금 보이는 순서를 그대로 '직접 정한 순서'로 삼은 뒤 옮김 */
+  function padReorder(id, ref, after) {
+    var n = padNote(id);
+    if (!n || id === ref) return false;
+    var switched = false;
+    if (S.padSort !== 'manual') {
+      var live = padSorted(S.pad.notes.filter(function (x) { return !x.trashed; }));   // 지금 정렬(예: 수정한 날짜) 그대로 모든 메모에 번호를 매김
+      padRenumber(live);
+      S.padSort = 'manual'; writePref('padSort', 'manual');
+      switched = true;
+    }
+    var list = padVisible().filter(function (x) { return x.id !== id; }), k = -1;
+    for (var i = 0; i < list.length; i++) if (list[i].id === ref) { k = i; break; }
+    if (k < 0) return false;
+    var at = after ? k + 1 : k, prev = list[at - 1], next = list[at];
+    var ord = padBetween(prev, next);
+    if (ord === null) {   // 사이가 너무 좁으면 모든 메모의 번호를 다시 매긴 뒤
+      padRenumber(padSorted(S.pad.notes.filter(function (x) { return !x.trashed; })).filter(function (x) { return x.id !== id; }));
+      ord = padBetween(prev, next);
+      if (ord === null) return false;
+    }
+    if (n.ord !== ord) { S.store.padCommit([{ kind: 'note', op: 'update', id: id, data: { ord: ord } }]); n.ord = ord; }
+    toast(switched ? '순서를 바꿨습니다. 정렬이 ‘직접 정한 순서’로 바뀌었습니다.' : '순서를 바꿨습니다.');
+    return true;
+  }
+  function padBetween(prev, next) {
+    var a = prev ? prev.ord : null, b = next ? next.ord : null, v;
+    if (a === null && b === null) return 0;
+    if (a === null) return b - 1024;
+    if (b === null) return a + 1024;
+    v = (a + b) / 2;
+    return v > a && v < b && b - a > 1e-6 ? v : null;
+  }
+  function padRenumber(list) {   // 이 순서대로 1024, 2048, … (값이 같으면 저장하지 않음)
+    var ops = [];
+    list.forEach(function (x, i) {
+      var v = (i + 1) * 1024;
+      if (x.ord !== v) { ops.push({ kind: 'note', op: 'update', id: x.id, data: { ord: v } }); x.ord = v; }
+    });
+    if (ops.length) S.store.padCommit(ops);
+  }
+  /* 폴더를 다른 폴더의 바로 위·아래에 (그 폴더와 같은 곳으로 옮겨지고, 형제 폴더 순서는 끌어 놓은 대로) */
+  function padFolderPlace(id, ref, after) {
+    var f = padFolder(id), rf = padFolder(ref), T = S.pad.tree;
+    if (!f || !rf || id === ref) return false;
+    var parent = T.parent[ref] || '';
+    if (parent === id || padDesc(id).indexOf(parent) >= 0) return false;
+    var sibs = (T.kids[parent] || []).filter(function (x) { return x.id !== id; }), k = -1;
+    for (var i = 0; i < sibs.length; i++) if (sibs[i].id === ref) { k = i; break; }
+    if (k < 0) return false;
+    var before = (T.kids[parent] || []).map(function (x) { return x.id; }).join(',');
+    sibs.splice(after ? k + 1 : k, 0, f);
+    var moved = (T.parent[id] || '') !== parent, now = Date.now(), ops = [];
+    if (!moved && sibs.map(function (x) { return x.id; }).join(',') === before) return false;   // 제자리에 놓음
+    sibs.forEach(function (x, j) {
+      var v = j + 1, data = null;
+      if (x.ord !== v) data = { ord: v };
+      if (x.id === id && moved) { data = data || {}; data.parent = parent; data.updated = now; }
+      if (data) ops.push({ kind: 'folder', op: 'update', id: x.id, data: data });
+    });
+    if (!ops.length) return false;
+    S.store.padCommit(ops);
+    if (parent && !padIsOpen(parent)) padOpenSet(parent, true);
+    toast(moved ? '‘' + f.name + '’ 폴더를 옮겼습니다.' : '폴더 순서를 바꿨습니다.');
+    return true;
+  }
+
+  /* ── 메모 속 그림 (v1.12부터): 캡처한 화면을 붙여 넣거나(Ctrl+V) 끌어다 놓거나 '그림 넣기'로 고르면 메모 안에 그대로 보임 ──
+     그림은 줄여서(긴 쪽 1600px 안팎) 메모와 따로 저장하고, 메모에는 그림 id만 적어 둠 */
+  var PAD_IMG_W = 1600, PAD_IMG_CHARS = 860000, PAD_THUMB = 320;
+  var PADIMG = {};   // 그림 id → { data, thumb, w, h } 또는 불러오는 중인 Promise
+  function padImgOk() { return !!(S.store && typeof S.store.padImgPut === 'function' && typeof S.store.padImgGet === 'function' && typeof S.store.padImgDel === 'function'); }
+  function padImgLoad(id) {
+    var c = PADIMG[id];
+    if (c && typeof c.then === 'function') return c;
+    if (c) return Promise.resolve(c);
+    if (!padImgOk()) return Promise.resolve(null);
+    var p = S.store.padImgGet(id).then(function (r) {
+      if (r && r.data) { PADIMG[id] = r; padImgTrim(); return r; }
+      delete PADIMG[id]; return null;
+    }, function () { delete PADIMG[id]; return null; });
+    PADIMG[id] = p;
+    return p;
+  }
+  function padImgTrim() {   // 불러 둔 그림이 너무 많으면 지금 열린 메모의 것만 남김 (휴대폰 메모리)
+    var keys = Object.keys(PADIMG);
+    if (keys.length <= 60) return;
+    var keep = {};
+    if (S.pad.open) $$('#peBody img[data-pimg]').forEach(function (im) { keep[im.getAttribute('data-pimg')] = 1; });
+    keys.forEach(function (k) { if (!keep[k] && PADIMG[k] && typeof PADIMG[k].then !== 'function') delete PADIMG[k]; });
+  }
+  /* 다른 메모가 함께 쓰는 그림(복사해 붙여 넣은 그림)은 지우지 않음. skip: 이번에 지우거나 닫는 메모 */
+  function padImgDrop(ids, skip) {
+    ids = (ids || []).filter(Boolean);
+    if (!ids.length || !padImgOk()) return;
+    var sk = {}, used = {};
+    (skip || []).forEach(function (x) { sk[x] = 1; });
+    S.pad.notes.forEach(function (n) { if (!sk[n.id]) (n.imgs || []).forEach(function (x) { used[x] = 1; }); });
+    var gone = ids.filter(function (x, i) { return !used[x] && ids.indexOf(x) === i; });
+    if (!gone.length) return;
+    gone.forEach(function (x) { delete PADIMG[x]; });
+    S.store.padImgDel(gone);
+  }
+  /* 첫 그림의 작은 그림 (목록 카드에 보임) */
+  function padThumbFor(n, imgs) {
+    var first = imgs[0] || '';
+    if (!first) return { thumb: '', thumbId: '' };
+    if (first === n.thumbId && n.thumb) return { thumb: n.thumb, thumbId: first };
+    var c = PADIMG[first];
+    if (c && typeof c.then !== 'function' && c.thumb) return { thumb: c.thumb, thumbId: first };
+    var id = n.id;
+    padImgLoad(first).then(function (r) {   // 아직 못 불러온 그림: 불러온 뒤 한 번 더 저장
+      if (r && r.thumb && PE.id === id && PE.exists) { PE.dirty = true; peSave(); }
+    });
+    return { thumb: n.thumb || '', thumbId: n.thumbId || '' };
+  }
+  /* 메모 화면의 그림에 실제 그림을 채움 */
+  function peHydrate(root) {
+    $$('img[data-pimg]', root).forEach(function (im) {
+      var id = im.getAttribute('data-pimg'), w = +im.getAttribute('data-w') || 0, h = +im.getAttribute('data-h') || 0;
+      im.setAttribute('draggable', 'false'); im.alt = '';
+      if (w > 0 && h > 0) { im.style.aspectRatio = w + ' / ' + h; im.style.width = Math.min(w, 2000) + 'px'; }
+      if (im.getAttribute('src')) return;
+      var c = PADIMG[id];
+      if (c && typeof c.then !== 'function' && c.data) { im.src = c.data; return; }
+      im.classList.add('loading');
+      padImgLoad(id).then(function (r) {
+        im.classList.remove('loading');
+        if (r && r.data) im.src = r.data;
+        else { im.classList.add('miss'); im.title = '그림을 불러오지 못했습니다. 인터넷 연결을 확인하십시오.'; }
+      });
+    });
+  }
+  function padIsImgFile(f) { return !!f && /^image\//.test(f.type || ''); }
+  function padClipImages(cd) {
+    var out = [], i;
+    if (cd.items) for (i = 0; i < cd.items.length; i++) {
+      var it = cd.items[i];
+      if (it.kind === 'file' && /^image\//.test(it.type || '')) { var f = it.getAsFile(); if (f) out.push(f); }
+    }
+    if (!out.length && cd.files) for (i = 0; i < cd.files.length; i++) if (padIsImgFile(cd.files[i])) out.push(cd.files[i]);
+    return out;
+  }
+  function padImgDecode(file) {
+    function viaEl() {
+      return new Promise(function (res, rej) {
+        var url = URL.createObjectURL(file), im = new Image();
+        im.onload = function () { res({ src: im, w: im.naturalWidth, h: im.naturalHeight, close: function () { URL.revokeObjectURL(url); } }); };
+        im.onerror = function () { URL.revokeObjectURL(url); rej(new Error('decode')); };
+        im.src = url;
+      });
+    }
+    if (window.createImageBitmap) {
+      return createImageBitmap(file).then(function (bm) {
+        return { src: bm, w: bm.width, h: bm.height, close: function () { try { bm.close(); } catch (e) { /* 무시 */ } } };
+      }, viaEl);
+    }
+    return viaEl();
+  }
+  function padCanvasData(cv, q) {
+    var d = cv.toDataURL('image/webp', q);
+    if (d.indexOf('data:image/webp') !== 0) d = cv.toDataURL('image/jpeg', q);   // WebP로 못 만드는 브라우저(예전 Safari)
+    return d;
+  }
+  function padImgEncode(src, w0, h0) {   // 크기를 줄여 data URL로 (Firebase 문서 하나 1MB 안으로)
+    var scale = Math.min(1, PAD_IMG_W / Math.max(w0, 1), Math.sqrt(6000000 / Math.max(1, w0 * h0))), qs = [0.86, 0.74, 0.6];
+    for (var j = 0; j < 8; j++) {
+      var w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
+      var cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      var cx = cv.getContext('2d');
+      cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);   // 투명한 부분은 흰색으로
+      cx.drawImage(src, 0, 0, w, h);
+      for (var i = 0; i < qs.length; i++) {
+        var d = padCanvasData(cv, qs[i]);
+        if (d.length <= PAD_IMG_CHARS) return { data: d, w: w, h: h };
+      }
+      scale *= 0.75;
+    }
+    return null;
+  }
+  function padThumbEncode(src, w0, h0) {   // 카드에 보일 작은 그림 (긴 그림은 윗부분만)
+    var tw = Math.max(1, Math.min(PAD_THUMB, w0)), th = Math.max(1, Math.round(h0 * tw / w0)), sh = h0;
+    if (th > PAD_THUMB) { th = PAD_THUMB; sh = Math.round(PAD_THUMB * w0 / tw); }
+    var cv = document.createElement('canvas');
+    cv.width = tw; cv.height = th;
+    var cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, tw, th);
+    cx.drawImage(src, 0, 0, w0, sh, 0, 0, tw, th);
+    var d = padCanvasData(cv, 0.72);
+    return d.length <= 55000 ? d : cv.toDataURL('image/jpeg', 0.45);
+  }
+  function padImgPrepare(file) {
+    return padImgDecode(file).then(function (im) {
+      try {
+        if (!im.w || !im.h) throw new Error('empty');
+        var big = padImgEncode(im.src, im.w, im.h);
+        if (!big) throw new Error('too-big');
+        return { data: big.data, w: big.w, h: big.h, thumb: padThumbEncode(im.src, im.w, im.h) };
+      } finally { im.close(); }
+    });
+  }
+  /* 그림 넣기: 붙여 넣기 · 끌어다 놓기 · '그림 넣기' 단추 (range: 넣을 자리, 없으면 지금 커서 또는 맨 끝) */
+  function padInsertImages(files, range) {
+    var n = peNote();
+    if (!n || n.trashed) return;
+    var list = Array.prototype.filter.call(files || [], padIsImgFile).slice(0, 10);
+    if (!list.length) return;
+    if (!padImgOk()) { toast('그림을 넣으려면 store.js 파일도 새 버전(v1.12)으로 올려 주세요. 업데이트 파일 6개를 모두 다시 올리면 됩니다.', 'error', null, 8000); return; }
+    var id0 = PE.id, ed = $('#peBody'), fail = 0;
+    if (range && ed.contains(range.startContainer)) peRange = range.cloneRange();
+    PE.busy++; peMeta(n);
+    list.reduce(function (p, f) {
+      return p.then(function () {
+        return padImgPrepare(f).then(function (r) { if (PE.id === id0) padImgPlace(r); }, function () { fail++; });
+      });
+    }, Promise.resolve()).then(function () {
+      if (PE.id !== id0) return;
+      PE.busy = Math.max(0, PE.busy - 1);
+      peMeta(peNote());
+      if (fail) toast(fail > 1 ? '그림 ' + fail + '개를 넣지 못했습니다.' : '이 그림은 넣을 수 없습니다. 다른 그림으로 해 보십시오.', 'error', null, 5000);
+    });
+  }
+  function padImgPlace(r) {
+    var id = S.store.newPadId(), rec = { note: PE.id, data: r.data, thumb: r.thumb, w: r.w, h: r.h, created: Date.now() };
+    PADIMG[id] = rec; PE.known[id] = 1;
+    S.store.padImgPut(id, rec).then(null, function () { /* 저장 오류는 저장소가 알림 */ });
+    var ed = $('#peBody'), sel = window.getSelection();
+    ed.focus();
+    var rg = peRange && ed.contains(peRange.startContainer) ? peRange.cloneRange() : null;
+    if (!rg) { rg = document.createRange(); rg.selectNodeContents(ed); rg.collapse(false); }
+    sel.removeAllRanges(); sel.addRange(rg);
+    var cx = padCaretCtx(ed, rg);
+    var tag = '<img src="' + r.data + '" data-pimg="' + id + '" data-w="' + r.w + '" data-h="' + r.h + '" alt="" draggable="false">';
+    var html = (cx.before ? '<br>' : '') + tag + '<br>' + (cx.atEnd ? '<br>' : '');
+    var ok = false;
+    try { ok = document.execCommand('insertHTML', false, html); } catch (e) { ok = false; }
+    var im = ed.querySelector('img[data-pimg="' + id + '"]');
+    if (!ok || !im) {   // insertHTML이 안 되는 브라우저: 직접 넣음 (되돌리기는 안 됨)
+      var box = document.createElement('div'); box.innerHTML = html;
+      var frag = document.createDocumentFragment(), last = null;
+      while (box.firstChild) { last = box.firstChild; frag.appendChild(last); }
+      rg = sel.rangeCount ? sel.getRangeAt(0) : rg;
+      rg.deleteContents(); rg.insertNode(frag);
+      im = ed.querySelector('img[data-pimg="' + id + '"]');
+    }
+    if (im) {   // 커서는 그림 다음 줄로
+      var nx = im.nextSibling, after = document.createRange();
+      if (nx && nx.nodeName === 'BR') after.setStartAfter(nx); else after.setStartAfter(im);
+      after.collapse(true);
+      sel.removeAllRanges(); sel.addRange(after);
+      peRange = after.cloneRange();
+      try { (im.scrollIntoView || function () {}).call(im, { block: 'nearest' }); } catch (e) { /* 무시 */ }
+    }
+    peHydrate(ed);
+    peTouch();
+  }
+  /* 커서가 있는 줄의 앞에 글·그림이 있는지(before), 커서가 글 맨 끝인지(atEnd) */
+  function padCaretCtx(ed, rg) {
+    var mk = document.createTextNode('\u0001'), out = { before: false, atEnd: true };
+    try {
+      var r = rg.cloneRange(); r.collapse(true); r.insertNode(mk);
+      var lines = rtFromDom(ed, { img: true });
+      for (var i = 0; i < lines.length; i++) {
+        var txt = lines[i].map(function (x) { return x.img ? '\u0002' : x.t; }).join(''), k = txt.indexOf('\u0001');
+        if (k < 0) continue;
+        out.before = k > 0;
+        out.atEnd = i === lines.length - 1 && k === txt.length - 1;
+        break;
+      }
+    } catch (e) { /* 모르면 그냥 넣음 */ }
+    var p = mk.parentNode;
+    if (p) {
+      var back = document.createRange();
+      back.setStartBefore(mk); back.collapse(true);
+      p.removeChild(mk);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(back);
+    }
+    return out;
+  }
+  /* 붙여 넣은 뒤 글 모양을 메모 방식(진하게 · 그림)으로 정리 — 커서는 그 자리에 */
+  function peNormalize() {
+    var ed = $('#peBody'), sel = window.getSelection();
+    if (!sel.rangeCount || !ed.contains(sel.anchorNode)) return;
+    var mk = document.createTextNode('\u0001'), r = sel.getRangeAt(0).cloneRange();
+    r.collapse(false); r.insertNode(mk);
+    ed.innerHTML = rtHtml(rtFromDom(ed, { img: true }));
+    peHydrate(ed);
+    var w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, null, false), t;
+    while ((t = w.nextNode())) {
+      var k = t.nodeValue.indexOf('\u0001');
+      if (k < 0) continue;
+      t.nodeValue = t.nodeValue.slice(0, k) + t.nodeValue.slice(k + 1);
+      var rr = document.createRange(); rr.setStart(t, k); rr.collapse(true);
+      sel.removeAllRanges(); sel.addRange(rr);
+      break;
+    }
+  }
+
+  /* ── 메모를 파일로 저장: 그림(PNG) · PDF · 텍스트(TXT) ── */
+  var padExporting = false;
+  function padSaveMenu(on) {
+    var m = $('#peSaveMenu');
+    if (!m) return;
+    m.hidden = !on;
+    $('#peSave').setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  function padFileName(n, ext) {
+    var t = padTitleOf(n).replace(/[\\\/:*?"<>|\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 60);
+    return (t && t !== '제목 없음' ? t : '메모') + '.' + ext;
+  }
+  function padDownload(blob, name) {
+    try {   // 아이폰 · 아이패드: 공유 창으로 (파일 앱 · 사진에 저장). 안 되면 내려받기로
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent) && navigator.canShare && window.File) {
+        var file = new File([blob], name, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: name }).then(null, function (e) { if (!e || e.name !== 'AbortError') padDownloadLink(blob, name); });
+          return;
+        }
+      }
+    } catch (e) { /* 아래 방법으로 */ }
+    padDownloadLink(blob, name);
+  }
+  function padDownloadLink(blob, name) {
+    var a = document.createElement('a'), url = URL.createObjectURL(blob);
+    a.href = url; a.download = name; a.rel = 'noopener'; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); if (a.parentNode) a.parentNode.removeChild(a); }, 8000);
+  }
+  function padExport(kind) {
+    padSaveMenu(false);
+    var n = peNote();
+    if (!n || padExporting) return;
+    peSave();
+    n = peNote();
+    var lines = rtFromDom($('#peBody'), { img: true }), title = $('#peTitle').value;
+    var note = Object.assign({}, n, { title: title });
+    if (!title.trim() && !rtText(lines).trim() && !rtImgs(lines).length) { toast('저장할 내용이 없습니다.'); return; }
+    if (kind === 'txt') { padExportTxt(note, lines); return; }
+    padExporting = true;
+    toast(kind === 'pdf' ? 'PDF 파일을 만드는 중…' : '그림 파일을 만드는 중…', null, null, 20000);
+    var ids = rtImgs(lines), imgs = {};
+    Promise.all(ids.map(function (id) {
+      return padImgLoad(id).then(function (r) { return r ? padLoadImgEl(r.data) : null; }).then(function (el) { if (el) imgs[id] = el; });
+    })).then(function () {
+      return kind === 'pdf' ? padExportPdf(note, lines, imgs) : padExportPng(note, lines, imgs);
+    }).then(function (msg) {
+      padExporting = false;
+      toast(msg || '저장했습니다.');
+    }, function (e) {
+      padExporting = false;
+      toast((e && e.message === 'too-long') ? '메모가 길어 그림 파일 하나로 만들 수 없습니다. PDF 파일로 저장하십시오.' : '파일을 만들지 못했습니다. 다시 해 보십시오.', 'error', null, 6000);
+    });
+  }
+  function padLoadImgEl(src) {
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = function () { res(null); };
+      im.src = src;
+    });
+  }
+  function padExportTxt(n, lines) {
+    var out = [], title = String(n.title || '').trim();
+    if (title) out.push(title, '');
+    lines.forEach(function (l) { out.push(l.map(function (r) { return r.img ? '[그림]' : r.t; }).join('')); });
+    var txt = '﻿' + out.join('\r\n').replace(/\s+$/, '') + '\r\n';
+    var name = padFileName(n, 'txt');
+    padDownload(new Blob([txt], { type: 'text/plain;charset=utf-8' }), name);
+    toast('‘' + name + '’ 파일로 저장했습니다.');
+  }
+  /* 메모를 그릴 계획: 줄 상자(글) · 그림 · 선을 위에서부터 차례로. W: 그림 너비(px), s: 배율, M: 여백 */
+  var PAD_TOKEN_RE = /[ᄀ-ᇿ⺀-鿿가-힯豈-﫿＀-￯]|\s+|[^\sᄀ-ᇿ⺀-鿿가-힯豈-﫿＀-￯]+/g;
+  function padPlan(n, lines, imgs, W, s, M) {
+    var f = fontById(S.font), stack = fontStack(f), sc = f.scale || 1, CW = W - 2 * M;
+    var fsB = 16.5 * sc * s, fsT = 22 * sc * s, fsM = 12.5 * s;
+    var cv = document.createElement('canvas').getContext('2d'), blocks = [];
+    function font(b, size) { return (b ? '700 ' : '400 ') + size.toFixed(1) + 'px ' + stack; }
+    function wrap(runs, size, lh, color) {
+      var line = [], x = 0, cont = false;   // cont: 줄이 넘어가서 새로 시작한 줄인지
+      function flush(wrapped) { blocks.push({ type: 'text', h: lh, size: size, color: color, runs: line }); line = []; x = 0; cont = !!wrapped; }
+      function put(t, b, w) { line.push({ t: t, b: b, x: x }); x += w; cont = false; }
+      var toks = [];
+      runs.forEach(function (r) { (String(r.t || '').match(PAD_TOKEN_RE) || []).forEach(function (tk) { toks.push({ t: tk, b: !!r.b }); }); });
+      if (!toks.length) { flush(false); return; }
+      toks.forEach(function (tk) {
+        cv.font = font(tk.b, size);
+        var w = cv.measureText(tk.t).width, sp = /^\s+$/.test(tk.t);
+        if (sp && cont && !line.length) return;   // 줄이 넘어간 첫머리의 빈칸은 버림
+        if (x + w <= CW) { put(tk.t, tk.b, w); return; }
+        if (sp) { if (line.length) flush(true); return; }
+        if (w <= CW) { if (line.length) flush(true); put(tk.t, tk.b, w); return; }
+        Array.from(tk.t).forEach(function (ch) {   // 줄보다 긴 낱말: 글자 단위로
+          var cw = cv.measureText(ch).width;
+          if (x + cw > CW && line.length) flush(true);
+          put(ch, tk.b, cw);
+        });
+      });
+      if (line.length) flush(false);
+    }
+    var title = String(n.title || '').trim();
+    if (title) wrap([{ t: title, b: true }], fsT, Math.round(fsT * 1.4), '#1d1b17');
+    var fo = padFolder(n.folder), meta = (fo ? fo.name + ' · ' : '') + padWhenFull(n.updated || Date.now());
+    wrap([{ t: meta, b: false }], fsM, Math.round(fsM * 1.7), '#8a8478');
+    blocks.push({ type: 'rule', h: Math.round(20 * s) });
+    var lhB = Math.round(fsB * 1.75);
+    lines.forEach(function (l) {
+      var seg = [], hasImg = false;
+      l.forEach(function (r) {
+        if (!r.img) { seg.push(r); return; }
+        hasImg = true;
+        if (seg.length) { wrap(seg, fsB, lhB, '#222'); seg = []; }
+        var im = imgs[r.img];
+        if (!im) { blocks.push({ type: 'miss', h: lhB }); return; }
+        var iw = Math.min(CW, im.naturalWidth * s), ih = Math.round(iw * im.naturalHeight / Math.max(1, im.naturalWidth));
+        blocks.push({ type: 'img', im: im, w: Math.round(iw), h: ih, pad: Math.round(6 * s) });
+      });
+      if (seg.length || !hasImg) wrap(seg, fsB, lhB, '#222');
+    });
+    return { W: W, M: M, CW: CW, s: s, blocks: blocks, font: font, fonts: [font(false, fsB), font(true, fsB), font(true, fsT), font(false, fsM)] };
+  }
+  function padFontsReady(list) {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    var all = Promise.all(list.map(function (f) { return document.fonts.load(f, '가나다 Aa1').then(null, function () { /* 무시 */ }); }));
+    return Promise.race([all, new Promise(function (r) { setTimeout(r, 3000); })]);
+  }
+  function padBlockH(b) { return b.type === 'img' ? b.h + 2 * b.pad : b.h; }
+  function padDraw(cx, plan, b, y) {   // 상자 하나를 y 위치에 그림
+    var M = plan.M;
+    if (b.type === 'text') {
+      cx.fillStyle = b.color; cx.textBaseline = 'middle';
+      b.runs.forEach(function (r) { cx.font = plan.font(r.b, b.size); cx.fillText(r.t, M + r.x, y + b.h / 2); });
+    } else if (b.type === 'rule') {
+      cx.strokeStyle = '#d9d2c3'; cx.lineWidth = Math.max(1, plan.s); cx.setLineDash([4 * plan.s, 4 * plan.s]);
+      cx.beginPath(); cx.moveTo(M, y + b.h / 2); cx.lineTo(M + plan.CW, y + b.h / 2); cx.stroke(); cx.setLineDash([]);
+    } else if (b.type === 'img') {
+      cx.drawImage(b.im, M, y + b.pad, b.w, b.h);
+      cx.strokeStyle = '#e4ddcf'; cx.lineWidth = Math.max(1, plan.s / 1.5); cx.strokeRect(M + 0.5, y + b.pad + 0.5, b.w - 1, b.h - 1);
+    } else if (b.type === 'miss') {
+      cx.fillStyle = '#aaa'; cx.textBaseline = 'middle'; cx.font = plan.font(false, 14 * plan.s); cx.fillText('[그림을 불러오지 못했습니다]', M, y + b.h / 2);
+    }
+  }
+  function padExportPng(n, lines, imgs) {
+    var s = 2, W = 760 * s, plan = padPlan(n, lines, imgs, W, s, 44 * s);
+    return padFontsReady(plan.fonts).then(function () {
+      plan = padPlan(n, lines, imgs, W, s, 44 * s);   // 글꼴을 불러온 뒤 다시 재서 (글자 폭이 바뀜)
+      var H = plan.M * 2;
+      plan.blocks.forEach(function (b) { H += padBlockH(b); });
+      if (H > 16000) {   // 너무 길면 반으로 줄여서라도 (휴대폰 브라우저의 그림 크기 한도)
+        if (H / 2 > 16000) throw new Error('too-long');
+        s = 1; W = 760; plan = padPlan(n, lines, imgs, W, s, 44); H = plan.M * 2;
+        plan.blocks.forEach(function (b) { H += padBlockH(b); });
+      }
+      var cv = document.createElement('canvas');
+      cv.width = W; cv.height = Math.ceil(H);
+      var cx = cv.getContext('2d');
+      cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+      var y = plan.M;
+      plan.blocks.forEach(function (b) { padDraw(cx, plan, b, y); y += padBlockH(b); });
+      return new Promise(function (res, rej) {
+        cv.toBlob(function (blob) {
+          if (!blob) { rej(new Error('blob')); return; }
+          var name = padFileName(n, 'png');
+          padDownload(blob, name);
+          res('‘' + name + '’ 파일로 저장했습니다.');
+        }, 'image/png');
+      });
+    });
+  }
+  /* PDF: A4 쪽마다 그림으로 그려서 넣음 (글꼴을 따로 넣지 않아도 한글이 그대로 나옴) */
+  function padExportPdf(n, lines, imgs) {
+    var W = 1240, H = 1754, s = W / 794 * 1.08, M = 96;
+    var plan = padPlan(n, lines, imgs, W, s, M);
+    return padFontsReady(plan.fonts).then(function () {
+      plan = padPlan(n, lines, imgs, W, s, M);
+      var pages = [], cur = [], y = M, room = H - 2 * M;
+      plan.blocks.forEach(function (b) {
+        if (b.type === 'img' && b.h + 2 * b.pad > room) {   // 한 쪽보다 큰 그림은 한 쪽에 맞게 줄임
+          var k = (room - 2 * b.pad) / b.h;
+          b.h = Math.floor(b.h * k); b.w = Math.floor(b.w * k);
+        }
+        var bh = padBlockH(b);
+        if (y + bh > H - M && cur.length) { pages.push(cur); cur = []; y = M; }
+        cur.push({ b: b, y: y }); y += bh;
+      });
+      if (cur.length || !pages.length) pages.push(cur);
+      return pages.reduce(function (p, items) {
+        return p.then(function (out) {
+          var cv = document.createElement('canvas');
+          cv.width = W; cv.height = H;
+          var cx = cv.getContext('2d');
+          cx.fillStyle = '#fff'; cx.fillRect(0, 0, W, H);
+          items.forEach(function (it) { padDraw(cx, plan, it.b, it.y); });
+          return padCanvasJpeg(cv).then(function (bytes) { out.push({ jpeg: bytes, w: W, h: H }); return out; });
+        });
+      }, Promise.resolve([]));
+    }).then(function (pages) {
+      var name = padFileName(n, 'pdf');
+      padDownload(padPdf(pages), name);
+      return '‘' + name + '’ 파일로 저장했습니다. (' + pages.length + '쪽)';
+    });
+  }
+  function padCanvasJpeg(cv) {
+    return new Promise(function (res, rej) {
+      cv.toBlob(function (blob) {
+        if (!blob) { rej(new Error('blob')); return; }
+        if (blob.arrayBuffer) blob.arrayBuffer().then(function (ab) { res(new Uint8Array(ab)); }, rej);
+        else { var fr = new FileReader(); fr.onload = function () { res(new Uint8Array(fr.result)); }; fr.onerror = rej; fr.readAsArrayBuffer(blob); }
+      }, 'image/jpeg', 0.9);
+    });
+  }
+  function padPdf(pages) {   // 아주 작은 PDF 만들기: 쪽마다 JPEG 그림 하나를 A4 크기로
+    var enc = new TextEncoder(), parts = [], pos = 0, offs = [], PW = '595.28', PH = '841.89';
+    function add(x) { var b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); pos += b.length; }
+    function obj(i, fn) { offs[i] = pos; add(i + ' 0 obj\n'); fn(); add('\nendobj\n'); }
+    add('%PDF-1.4\n'); add(new Uint8Array([37, 226, 227, 207, 211, 10]));
+    var n = pages.length, kids = [];
+    for (var k = 0; k < n; k++) kids.push((3 + 3 * k) + ' 0 R');
+    obj(1, function () { add('<< /Type /Catalog /Pages 2 0 R >>'); });
+    obj(2, function () { add('<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>'); });
+    pages.forEach(function (p, k) {
+      var pi = 3 + 3 * k, ci = pi + 1, ii = pi + 2, cs = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im' + k + ' Do Q';
+      obj(pi, function () { add('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im' + k + ' ' + ii + ' 0 R >> >> /Contents ' + ci + ' 0 R >>'); });
+      obj(ci, function () { add('<< /Length ' + cs.length + ' >>\nstream\n' + cs + '\nendstream'); });
+      obj(ii, function () {
+        add('<< /Type /XObject /Subtype /Image /Width ' + p.w + ' /Height ' + p.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpeg.length + ' >>\nstream\n');
+        add(p.jpeg); add('\nendstream');
+      });
+    });
+    var xref = pos, total = 3 + 3 * n, x = 'xref\n0 ' + total + '\n0000000000 65535 f \n';
+    for (var i = 1; i < total; i++) x += ('0000000000' + offs[i]).slice(-10) + ' 00000 n \n';
+    add(x + 'trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+
   function bindPad() {
-    var side = $('#pad .pad-side');
+    var side = $('#pad .pad-side'), padRoot = $('#pad');
+    padRoot.addEventListener('click', function (e) {   // 끌기 · 꾹 누르기 바로 뒤에 따라오는 click은 무시
+      if (Date.now() < padClickBlock && (e.target.closest('.pcard') || e.target.closest('.pt-row') || e.target.closest('.pn') || e.target.closest('.psub'))) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    // 끌어서 옮기기 · 꾹 눌러 고르기 (마우스 · 펜 · 손가락)
+    padRoot.addEventListener('pointerdown', padPDown);
+    document.addEventListener('pointermove', padPMove);
+    document.addEventListener('pointerup', padPUp);
+    document.addEventListener('pointercancel', padPUp);
+    padRoot.addEventListener('touchstart', padTStart, { passive: true });
+    padRoot.addEventListener('contextmenu', function (e) {
+      var c = e.target.closest('#padList .pcard');
+      if (c || e.target.closest('#padTree .pt-row')) e.preventDefault();   // 꾹 누를 때 휴대폰 메뉴가 뜨지 않게
+      if (!c || DD || (LP && LP.touch) || S.pad.open) return;
+      if (S.pad.selMode) padSelToggle(c.dataset.note); else padSelStart(c.dataset.note);   // PC: 오른쪽 단추로도 고르기
+    });
+    window.addEventListener('blur', function () { if (DD) padDragEnd(false); else padLPCancel(); });
     side.addEventListener('click', function (e) {
       var b;
       if ((b = e.target.closest('[data-toggle]'))) { padOpenSet(b.dataset.toggle, !padIsOpen(b.dataset.toggle)); renderPadSide(); return; }
@@ -1441,16 +2542,24 @@
     $('#padListWrap').addEventListener('click', function (e) {
       var b;
       if (!e.target.closest('#padMenu') && !e.target.closest('#padMore')) padMenu(false);
+      if (!e.target.closest('#padViewMenu') && !e.target.closest('#padLayout')) padViewMenu(false);
+      if ((b = e.target.closest('#padViewMenu [data-layout]'))) { padSetLayout(b.dataset.layout); return; }
+      if ((b = e.target.closest('#padViewMenu [data-gsize]'))) { if (!b.disabled) padSetGrid(+b.dataset.gsize); return; }
+      if (e.target.closest('#padViewMenu')) return;
       if ((b = e.target.closest('[data-pact]'))) { padMenuAct(b.dataset.pact); return; }
-      if ((b = e.target.closest('[data-note]'))) { padOpenNote(b.dataset.note); return; }
+      if ((b = e.target.closest('#padList [data-note]'))) { if (S.pad.selMode) padSelToggle(b.dataset.note); else padOpenNote(b.dataset.note); return; }
       if ((b = e.target.closest('[data-folder]'))) { padSelect({ kind: 'folder', id: b.dataset.folder }); return; }
       if ((b = e.target.closest('#padCrumb [data-pad]'))) { padSelect({ kind: 'all', id: '' }); return; }
     });
     $('#padBack').addEventListener('click', padBackBtn);
     $('#padMore').addEventListener('click', function () { padMenu($('#padMenu').hidden); });
-    $('#padLayout').addEventListener('click', function () {
-      S.padLayout = S.padLayout === 'list' ? 'grid' : 'list'; writePref('padLayout', S.padLayout); renderPadList();
-    });
+    $('#padLayout').addEventListener('click', function () { padViewMenu($('#padViewMenu').hidden); });
+    // 고르기 막대
+    $('#psClose').addEventListener('click', function () { padSelEnd(); });
+    $('#psAll').addEventListener('click', padSelAll);
+    $('#psMove').addEventListener('click', padSelMove);
+    $('#psRestore').addEventListener('click', padSelRestore);
+    $('#psDel').addEventListener('click', padSelDelete);
     $('#padSort').addEventListener('change', function (e) {
       S.padSort = PAD_SORT_KEYS.indexOf(e.target.value) >= 0 ? e.target.value : 'updated'; writePref('padSort', S.padSort); renderPadList();
     });
@@ -1480,13 +2589,51 @@
     });
     ed.addEventListener('input', peTouch);
     ed.addEventListener('blur', peSave);
-    ed.addEventListener('paste', function (e) {   // 붙여 넣을 때는 글자만
+    ed.addEventListener('paste', function (e) {   // 캡처한 화면(그림)은 그림으로, 메모에서 복사한 그림이 섞인 글은 그대로, 그 밖에는 글자만
       var cd = e.clipboardData || window.clipboardData; if (!cd) return;
+      var n = peNote();
+      if (!n || n.trashed) { e.preventDefault(); return; }
+      var files = padClipImages(cd);
+      if (files.length) { e.preventDefault(); padInsertImages(files, null); return; }
+      var html = '';
+      try { html = String(cd.getData('text/html') || ''); } catch (x) { html = ''; }
+      if (html.indexOf('data-pimg') >= 0 && padImgOk()) { setTimeout(function () { peNormalize(); peTouch(); }, 0); return; }   // 브라우저가 붙여 넣은 뒤 모양만 정리
       e.preventDefault();
       var text = String(cd.getData('text/plain') || cd.getData('Text') || '').replace(/\r\n?/g, '\n');
       if (text) document.execCommand('insertText', false, text);
     });
-    ed.addEventListener('drop', function (e) { e.preventDefault(); });
+    function hasFiles(e) { var t = e.dataTransfer && e.dataTransfer.types; return !!t && Array.prototype.indexOf.call(t, 'Files') >= 0; }
+    ed.addEventListener('dragover', function (e) {
+      if (!hasFiles(e) || !peNote() || peNote().trashed) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; ed.classList.add('drop-on');
+    });
+    ed.addEventListener('dragleave', function () { ed.classList.remove('drop-on'); });
+    ed.addEventListener('drop', function (e) {   // 그림 파일을 끌어다 놓으면 놓은 자리에
+      e.preventDefault(); ed.classList.remove('drop-on');
+      var files = e.dataTransfer ? Array.prototype.filter.call(e.dataTransfer.files || [], padIsImgFile) : [];
+      if (!files.length) return;
+      var rg = null;
+      try {
+        if (document.caretRangeFromPoint) rg = document.caretRangeFromPoint(e.clientX, e.clientY);
+        else if (document.caretPositionFromPoint) { var cp = document.caretPositionFromPoint(e.clientX, e.clientY); if (cp) { rg = document.createRange(); rg.setStart(cp.offsetNode, cp.offset); rg.collapse(true); } }
+      } catch (x) { rg = null; }
+      if (rg && !ed.contains(rg.startContainer)) rg = null;
+      padInsertImages(files, rg);
+    });
+    window.addEventListener('dragover', function (e) { if (hasFiles(e) && !(e.target && e.target.closest && e.target.closest('#peBody'))) { e.preventDefault(); e.dataTransfer.dropEffect = 'none'; } });
+    window.addEventListener('drop', function (e) { if (hasFiles(e) && !(e.target && e.target.closest && e.target.closest('#peBody'))) e.preventDefault(); });   // 앱 밖으로 나가지 않게
+    // 그림 넣기 · 파일로 저장
+    var pi = $('#peImg'), pf = $('#peImgFile'), piRange = null;
+    pi.addEventListener('mousedown', function (e) { e.preventDefault(); });   // 커서 자리를 그대로 두려고
+    pi.addEventListener('click', function () {
+      var n = peNote();
+      if (!n || n.trashed) return;
+      piRange = peRange && ed.contains(peRange.startContainer) ? peRange.cloneRange() : null;
+      pf.value = ''; pf.click();
+    });
+    pf.addEventListener('change', function () { if (pf.files && pf.files.length) padInsertImages(pf.files, piRange); piRange = null; });
+    $('#peSave').addEventListener('click', function () { padSaveMenu($('#peSaveMenu').hidden); });
+    $('#peSaveMenu').addEventListener('click', function (e) { var b = e.target.closest('[data-exp]'); if (b) padExport(b.dataset.exp); });
     ed.addEventListener('beforeinput', function (e) {
       var tp = e.inputType || '';
       if (/^format/.test(tp) && tp !== 'formatBold') e.preventDefault();
@@ -1520,6 +2667,8 @@
     });
     document.addEventListener('click', function (e) {
       if (!$('#padMenu').hidden && !e.target.closest('#padMenu') && !e.target.closest('#padMore')) padMenu(false);
+      if (!$('#padViewMenu').hidden && !e.target.closest('#padViewMenu') && !e.target.closest('#padLayout')) padViewMenu(false);
+      if (!$('#peSaveMenu').hidden && !e.target.closest('#peSaveMenu') && !e.target.closest('#peSave')) padSaveMenu(false);
     });
     window.addEventListener('popstate', padOnPop);
   }
@@ -2141,7 +3290,7 @@
 
   /* 메모 칸 (진하게를 쓸 수 있는 글 상자) */
   function notesLooksEmpty(ed) {
-    return !ed.textContent && ed.querySelectorAll('br').length <= 1 && ed.querySelectorAll('div,p').length <= 1;
+    return !ed.textContent && !ed.querySelector('img') && ed.querySelectorAll('br').length <= 1 && ed.querySelectorAll('div,p').length <= 1;
   }
   function renderNotes(force) {
     var ed = $('#notes');
@@ -2778,7 +3927,7 @@
   }
 
   function renderFontView() {
-    FONTS.forEach(loadFontCss); // 미리보기를 위해 15종을 모두 불러옴
+    FONTS.forEach(loadFontCss); // 미리보기를 위해 25종을 모두 불러옴
     renderThemeList();
     $('#fontDesc').textContent = S.mode === 'firebase'
       ? '플래너 색깔과 글꼴을 고릅니다. 고른 설정은 PC와 휴대폰에 함께 적용됩니다.'
@@ -3421,7 +4570,8 @@
     S.store.exportAll().then(function (data) {
       var payload = { app: 'my-planner', version: 1, exportedAt: new Date().toISOString(), tasks: data.tasks, days: data.days, profile: data.profile, spans: data.spans || [],
         pad: data.pad || { folders: [], notes: [] } };
-      var padN = payload.pad.notes ? payload.pad.notes.length : 0, padTxt = padN ? ', 메모장 메모 ' + padN + '개' : '';
+      var padN = payload.pad.notes ? payload.pad.notes.length : 0, imgN = payload.pad.images ? payload.pad.images.length : 0;
+      var padTxt = padN ? ', 메모장 메모 ' + padN + '개' + (imgN ? '·그림 ' + imgN + '개' : '') : '';
       var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -3902,10 +5052,15 @@
 
     // 키보드 (PC)
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Delete' && S.view === 'pad' && S.pad.selMode && $('#padPickSheet').hidden && $('#padFolderSheet').hidden) { e.preventDefault(); padSelDelete(); return; }
       if (e.key === 'Escape') {
         if (!$('#padFolderSheet').hidden) { closePadFolder(); return; }
         if (!$('#padPickSheet').hidden) { closePadPick(); return; }
+        if (S.view === 'pad' && DD) { padDragEnd(false); return; }
         if (S.view === 'pad' && !$('#padMenu').hidden) { padMenu(false); return; }
+        if (S.view === 'pad' && !$('#padViewMenu').hidden) { padViewMenu(false); return; }
+        if (S.view === 'pad' && !$('#peSaveMenu').hidden) { padSaveMenu(false); return; }
+        if (S.view === 'pad' && S.pad.selMode && $('#drawer').hidden) { padSelEnd(); return; }
         if (S.view === 'pad' && S.pad.open && $('#drawer').hidden) { padBackBtn(); return; }
         if (infoTarget()) { closeInfo(); return; }
         if (!$('#sheet').hidden) { closeSheet(); return; }
