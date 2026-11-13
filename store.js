@@ -163,32 +163,84 @@
     return out;
   }
 
+  /* ───────── 메모장 (v1.11부터): 폴더 안에 폴더를 둘 수 있는 메모 ─────────
+     폴더 { name, parent: 위 폴더 id('' = 맨 위), color: 폴더 색('' = 기본), created, updated }
+     메모 { folder: 폴더 id('' = 폴더 없음), title, body: 그냥 글자(검색·미리보기용),
+            bodyHtml: 진하게가 있을 때만 <b>·<br>로 쓴 HTML('' = 없음), fav: 즐겨찾기,
+            trashed: 휴지통에 넣은 시각(0 = 휴지통 아님), created, updated }
+     지울 값도 null 대신 ''·0·false로 저장합니다(Firebase와 이 기기 저장이 똑같이 동작하도록). */
+  var PAD_COLORS = ['', 'red', 'orange', 'yellow', 'green', 'teal', 'sky', 'blue', 'navy', 'purple', 'pink', 'brown', 'gray'];
+  var PAD_TITLE_MAX = 200, PAD_BODY_MAX = 100000, PAD_HTML_MAX = 300000, PAD_NAME_MAX = 40;
+  function padIdOf(v) { return String(v == null ? '' : v).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
+  function cleanPadFolder(v) {
+    if (!v || typeof v !== 'object') return null;
+    var name = String(v.name == null ? '' : v.name).replace(/\s+/g, ' ').trim().slice(0, PAD_NAME_MAX);
+    if (!name) return null;
+    return {
+      name: name, parent: padIdOf(v.parent), color: PAD_COLORS.indexOf(v.color) >= 0 ? v.color : '',
+      created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
+    };
+  }
+  function cleanPadNote(v) {
+    if (!v || typeof v !== 'object') return null;
+    var out = {
+      folder: padIdOf(v.folder),
+      title: String(v.title == null ? '' : v.title).slice(0, PAD_TITLE_MAX),
+      body: String(v.body == null ? '' : v.body).slice(0, PAD_BODY_MAX),
+      bodyHtml: typeof v.bodyHtml === 'string' ? v.bodyHtml.slice(0, PAD_HTML_MAX) : '',
+      fav: v.fav === true,
+      trashed: Number(v.trashed) > 0 ? Number(v.trashed) : 0,
+      created: Number(v.created) || Date.now(), updated: Number(v.updated) || Date.now()
+    };
+    if (!out.title.trim() && !out.body.trim()) return null;   // 빈 메모는 들여오지 않음
+    return out;
+  }
+  function buildPadImportOps(data) {
+    var ops = [], pad = data && data.pad;
+    if (!pad || typeof pad !== 'object') return ops;
+    (Array.isArray(pad.folders) ? pad.folders : []).forEach(function (v) {
+      var c = cleanPadFolder(v), id = padIdOf(v && v.id);
+      if (c && id) ops.push({ kind: 'folder', op: 'set', id: id, data: c });
+    });
+    (Array.isArray(pad.notes) ? pad.notes : []).forEach(function (v) {
+      var c = cleanPadNote(v), id = padIdOf(v && v.id);
+      if (c && id) ops.push({ kind: 'note', op: 'set', id: id, data: c });
+    });
+    return ops;
+  }
+
   /* ───────────────────── LocalStore ───────────────────── */
   function LocalStore(key) {
     var self = this;
     this.kind = 'local';
     this.key = key || 'my-planner:local:v1';
     this.spanKey = this.key + ':spans';   // 여러 날 종일 일정은 따로 저장 (예전 버전 앱이 저장해도 지워지지 않게)
+    this.padKey = this.key + ':pad';      // 메모장도 따로 저장 (v1.11부터, 같은 까닭)
     this.subs = [];
     this.onStatus = null;
     this.onError = null;
     this.data = this._load();
     this._queued = false;
     this._onStorage = function (e) {
-      if (e.key === self.key || e.key === self.spanKey) { self.data = self._load(); self._changed(); }
+      if (e.key === self.key || e.key === self.spanKey || e.key === self.padKey) { self.data = self._load(); self._changed(); }
     };
     window.addEventListener('storage', this._onStorage);
   }
   LocalStore.prototype._load = function () {
-    var out = { tasks: {}, days: {}, profile: {}, spans: {} };
+    var out = { tasks: {}, days: {}, profile: {}, spans: {}, pad: { folders: {}, notes: {} } };
     try {
       var raw = localStorage.getItem(this.key);
       if (raw) {
         var d = JSON.parse(raw);
-        out = { tasks: d.tasks || {}, days: d.days || {}, profile: d.profile || {}, spans: {} };
+        out = { tasks: d.tasks || {}, days: d.days || {}, profile: d.profile || {}, spans: {}, pad: out.pad };
       }
       var rs = localStorage.getItem(this.spanKey);
       if (rs) { var sp = JSON.parse(rs); if (sp && typeof sp === 'object') out.spans = sp; }
+      var rp = localStorage.getItem(this.padKey);
+      if (rp) {
+        var pd = JSON.parse(rp);
+        if (pd && typeof pd === 'object') out.pad = { folders: pd.folders && typeof pd.folders === 'object' ? pd.folders : {}, notes: pd.notes && typeof pd.notes === 'object' ? pd.notes : {} };
+      }
     } catch (e) { /* 저장소를 읽을 수 없으면 빈 상태로 시작 */ }
     return out;
   };
@@ -198,6 +250,10 @@
       localStorage.setItem(this.key, JSON.stringify(main));
       if (Object.keys(this.data.spans || {}).length || localStorage.getItem(this.spanKey) !== null) {
         localStorage.setItem(this.spanKey, JSON.stringify(this.data.spans || {}));
+      }
+      var pad = this.data.pad || { folders: {}, notes: {} };
+      if (Object.keys(pad.folders).length || Object.keys(pad.notes).length || localStorage.getItem(this.padKey) !== null) {
+        localStorage.setItem(this.padKey, JSON.stringify(pad));
       }
     }
     catch (e) { if (this.onError) this.onError({ code: 'local-save-failed', message: String(e) }); }
@@ -291,6 +347,31 @@
     });
   };
   LocalStore.prototype.newSpanId = function () { return makeId(); };
+  /* 메모장: 폴더와 메모 전부 { folders: [{ id, ... }], notes: [{ id, ... }] } */
+  LocalStore.prototype._padLists = function () {
+    var pad = this.data.pad || { folders: {}, notes: {} };
+    function list(m) { return Object.keys(m).map(function (id) { var o = clone(m[id]); o.id = id; return o; }); }
+    return { folders: list(pad.folders), notes: list(pad.notes) };
+  };
+  LocalStore.prototype.watchPad = function (cb) {
+    var self = this;
+    return this._sub(function () { cb(self._padLists()); });
+  };
+  LocalStore.prototype.newPadId = function () { return makeId(); };
+  /* 메모장 바꾸기: [{ kind: 'folder' | 'note', op: 'set'(새로·통째로) | 'update'(있는 것만 고침) | 'remove', id, data }] */
+  LocalStore.prototype.padCommit = function (ops) {
+    var pad = this.data.pad || (this.data.pad = { folders: {}, notes: {} });
+    (ops || []).forEach(function (o) {
+      var m = o.kind === 'folder' ? pad.folders : o.kind === 'note' ? pad.notes : null, id = padIdOf(o.id);
+      if (!m || !id) return;
+      if (o.op === 'set') m[id] = clone(o.data);
+      else if (o.op === 'update') {
+        if (m[id]) Object.keys(o.data || {}).forEach(function (k) { if (o.data[k] === null || o.data[k] === undefined) delete m[id][k]; else m[id][k] = o.data[k]; });
+      }
+      else if (o.op === 'remove') delete m[id];
+    });
+    this._save(); this._changed();
+  };
   LocalStore.prototype.setSpan = function (id, patch) {
     if (!id) return;
     var sp = this.data.spans || (this.data.spans = {});
@@ -372,11 +453,14 @@
       tasks: this._tasks().map(clone),
       days: clone(this.data.days),
       profile: clone(this.data.profile),
-      spans: this._spans()
+      spans: this._spans(),
+      pad: this._padLists()
     });
   };
   LocalStore.prototype.importAll = function (data) {
     this.commit(buildImportOps(data));
+    var po = buildPadImportOps(data);
+    if (po.length) this.padCommit(po);
     return Promise.resolve();
   };
   LocalStore.prototype.destroy = function () {
@@ -414,6 +498,8 @@
     this.tasksCol = FB.collection(db, 'users', uid, 'tasks');
     this.daysCol = FB.collection(db, 'users', uid, 'days');
     this.spansCol = FB.collection(db, 'users', uid, 'spans');   // 여러 날 종일 일정 (v1.6부터)
+    this.padFoldersCol = FB.collection(db, 'users', uid, 'padFolders');   // 메모장 폴더 (v1.11부터)
+    this.padNotesCol = FB.collection(db, 'users', uid, 'padNotes');       // 메모장 메모 (v1.11부터)
     this.profileRef = FB.doc(db, 'users', uid, 'meta', 'profile');
     this.meta = {};        // 리스너별 { pending, cache }
     this.unsubs = [];
@@ -555,6 +641,27 @@
     });
   };
   FirebaseStore.prototype.newSpanId = function () { return this.FB.doc(this.spansCol).id; };
+  /* 메모장: 폴더·메모 모음을 통째로 지켜봄 (둘 다 처음 읽은 뒤부터 알려 줌) */
+  FirebaseStore.prototype.watchPad = function (cb) {
+    var folders = null, notes = null;
+    var emit = function () { if (folders && notes) cb({ folders: folders, notes: notes }); };
+    var a = this._listen(this.padFoldersCol, function (snap) { folders = docsOf(snap); emit(); });
+    var b = this._listen(this.padNotesCol, function (snap) { notes = docsOf(snap); emit(); });
+    return function () { a(); b(); };
+  };
+  FirebaseStore.prototype.newPadId = function () { return this.FB.doc(this.padNotesCol).id; };
+  /* 하나씩 저장: 'update'는 다른 기기에서 그사이 지운 것이면 조용히 넘어감 (지운 메모가 빈 채로 되살아나지 않게) */
+  FirebaseStore.prototype.padCommit = function (ops) {
+    var FB = this.FB, self = this;
+    (ops || []).forEach(function (o) {
+      var col = o.kind === 'folder' ? self.padFoldersCol : o.kind === 'note' ? self.padNotesCol : null, id = padIdOf(o.id);
+      if (!col || !id) return;
+      var ref = FB.doc(col, id);
+      if (o.op === 'set') self._track(FB.setDoc(ref, strip(o.data)));
+      else if (o.op === 'update') self._track(FB.updateDoc(ref, strip(o.data)), ['not-found']);
+      else if (o.op === 'remove') self._track(FB.deleteDoc(ref));
+    });
+  };
   FirebaseStore.prototype.setSpan = function (id, patch) {
     if (!id) return;
     this._track(this.FB.setDoc(this.FB.doc(this.spansCol, id), strip(patch), { merge: true }));
@@ -617,17 +724,21 @@
       var days = {};
       r[1].docs.forEach(function (d) { days[d.id] = d.data(); });
       var prof = r[2] && r[2].exists() ? r[2].data() : {};
-      return { tasks: docsOf(r[0]), days: days, profile: prof, spans: r[3] ? docsOf(r[3]) : [], partial: partial };
+      return { tasks: docsOf(r[0]), days: days, profile: prof, spans: r[3] ? docsOf(r[3]) : [],
+        pad: { folders: r[4] ? docsOf(r[4]) : [], notes: r[5] ? docsOf(r[5]) : [] }, partial: partial };
     }
     function fromCache() {
       return Promise.all([
         FB.getDocsFromCache(self.tasksCol),
         FB.getDocsFromCache(self.daysCol),
         FB.getDocFromCache(self.profileRef).catch(function () { return null; }),
-        FB.getDocsFromCache(self.spansCol).catch(function () { return null; })
+        FB.getDocsFromCache(self.spansCol).catch(function () { return null; }),
+        FB.getDocsFromCache(self.padFoldersCol).catch(function () { return null; }),
+        FB.getDocsFromCache(self.padNotesCol).catch(function () { return null; })
       ]).then(function (r) { return build(r, true); });
     }
-    var server = Promise.all([FB.getDocs(this.tasksCol), FB.getDocs(this.daysCol), FB.getDoc(this.profileRef), FB.getDocs(this.spansCol)]);
+    var server = Promise.all([FB.getDocs(this.tasksCol), FB.getDocs(this.daysCol), FB.getDoc(this.profileRef), FB.getDocs(this.spansCol),
+      FB.getDocs(this.padFoldersCol), FB.getDocs(this.padNotesCol)]);
     var timeout = new Promise(function (res) { timer = setTimeout(function () { res(null); }, 8000); });
     return Promise.race([server, timeout]).then(function (r) {
       clearTimeout(timer);
@@ -639,6 +750,8 @@
   };
   FirebaseStore.prototype.importAll = function (data) {
     this.commit(buildImportOps(data));
+    var po = buildPadImportOps(data);
+    if (po.length) this.padCommit(po);
     return Promise.resolve();
   };
   FirebaseStore.prototype.destroy = function () {
@@ -647,6 +760,7 @@
     window.removeEventListener('offline', this._onNet);
   };
 
-  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9) */
-  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan, v: 19 };
+  /* v: 이 파일의 버전 (app.js가 store.js만 예전 파일로 남았는지 확인할 때 씀. 19 = v1.9, 20 = v1.11) */
+  window.PlannerStores = { LocalStore: LocalStore, FirebaseStore: FirebaseStore, cleanTask: cleanTask, cleanSpan: cleanSpan,
+    cleanPadFolder: cleanPadFolder, cleanPadNote: cleanPadNote, v: 20 };
 })();

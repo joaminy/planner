@@ -400,11 +400,16 @@
     painting: false, paintColor: dayBg(readPref('paintColor', 'red')) ? readPref('paintColor', 'red') : 'red',
     dowOpen: false, dowColor: readPref('dowColor', ''), dowEach: null, dowTarget: 'all',
     memos: null, memoQ: '', memoLimit: 60,
+    /* 메모장 (v1.11부터): sel = 보고 있는 곳 { kind: 'all' | 'fav' | 'trash' | 'folder', id }, pane = 휴대폰에서 보이는 단계, open = 열린 메모 id */
+    pad: { folders: [], notes: [], loaded: false, tree: null, sel: { kind: 'all', id: '' }, pane: 'side', open: null, q: '' },
+    padLayout: readPref('padLayout', 'grid') === 'list' ? 'list' : 'grid',
+    padSort: ['updated', 'created', 'title'].indexOf(readPref('padSort', 'updated')) >= 0 ? readPref('padSort', 'updated') : 'updated',
+    padOpen: (function () { var o = {}; try { (JSON.parse(readPref('padOpen', '[]')) || []).forEach(function (k) { if (typeof k === 'string') o[k] = 1; }); } catch (e) { /* 무시 */ } return o; })(),
     addPri: readPref('addPri', 'A'),
     font: 'noto-sans', fontAll: false,
     theme: 'green', themeColor: '',
     editId: null,
-    unsub: { day: null, pending: null, sched: null, spans: null, profile: null, memos: null }
+    unsub: { day: null, pending: null, sched: null, spans: null, profile: null, memos: null, pad: null }
   };
   var FBA = null; // { FB, app, auth, db }
 
@@ -414,11 +419,12 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.10';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.11';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
     bindEvents();
+    bindPad();
     buildSchedRows();
     buildSchedTools();
     buildRangeTools();
@@ -576,22 +582,25 @@
     });
     subscribeDay();
     subscribeSched(S.view === 'month' ? S.monthCursor : monthKey(S.date));
+    if (S.view === 'pad') { subscribePad(); renderPad(); }
   }
 
-  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9) */
+  /* store.js 버전 (v는 v1.4부터 있음, 16 = v1.6, 17 = v1.7, 18 = v1.8, 19 = v1.9, 20 = v1.11) */
   function storeV() { var P = window.PlannerStores; return (P && +P.v) || 0; }
-  /* store.js가 v1.9 이상인지 (v1.9 store.js는 백업을 불러올 때 할 일 순서 표시까지 지킴. v1.10은 store.js를 바꾸지 않음) */
-  function storeIsCurrent() { return storeV() >= 19; }
+  /* store.js가 v1.11 파일인지 (v1.11 store.js에 메모장 저장이 들어 있음) */
+  function storeIsCurrent() { return storeV() >= 20; }
   /* 여러 날 종일 일정을 쓸 수 있는 저장소인지 (store.js가 예전 파일이면 안 됨) */
   function spansOk() { return !!(S.store && typeof S.store.watchSpans === 'function' && typeof S.store.setSpan === 'function'); }
 
   function detachStore() {
     flushInfo(); flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); closePaint(); closeDow();
+    padCloseNote(); closePadFolder(); closePadPick(); padMenu(false);
     closeInfo(true);
     Object.keys(S.unsub).forEach(function (k) { if (S.unsub[k]) S.unsub[k](); S.unsub[k] = null; });
     if (S.store && S.store.destroy) S.store.destroy();
     S.store = null;
     S.tasks = []; S.day = {}; S.pending = []; S.sched = {}; S.schedStyle = {}; S.schedInfo = {}; S.dayBg = {}; S.spans = []; S.schedKey = ''; S.profile = {};
+    padReset();
     closeSheet(true);
   }
 
@@ -695,6 +704,824 @@
   }
   function unsubscribeMemos() {
     if (S.unsub.memos) { S.unsub.memos(); S.unsub.memos = null; }
+  }
+
+  /* ───────── 메모장 (v1.11부터): 폴더 · 하위 폴더 · 메모 (삼성노트처럼) ─────────
+     휴대폰은 폴더 목록(side) → 메모 목록(list) → 메모(note)를 한 화면씩 보여 주고, PC는 왼쪽에 폴더 목록을 늘 둠.
+     폴더·메모 모음은 메모장을 처음 열 때부터 읽고(store.watchPad), 적는 내용은 잠깐 뒤 저절로 저장 */
+  var PAD_COLORS = [
+    { id: '', name: '기본', hex: '' },
+    { id: 'red', name: '빨강', hex: '#E0524A' },
+    { id: 'orange', name: '주황', hex: '#EF8A2B' },
+    { id: 'yellow', name: '노랑', hex: '#E2AE16' },
+    { id: 'green', name: '초록', hex: '#3F9B47' },
+    { id: 'teal', name: '청록', hex: '#17978A' },
+    { id: 'sky', name: '하늘', hex: '#2A9FD3' },
+    { id: 'blue', name: '파랑', hex: '#3A6FD6' },
+    { id: 'navy', name: '남색', hex: '#334189' },
+    { id: 'purple', name: '보라', hex: '#8753C4' },
+    { id: 'pink', name: '분홍', hex: '#DB5189' },
+    { id: 'brown', name: '갈색', hex: '#8B6B5E' },
+    { id: 'gray', name: '회색', hex: '#888478' }
+  ];
+  var PAD_TITLE_MAX = 200, PAD_BODY_MAX = 100000, PAD_HTML_MAX = 300000, PAD_NAME_MAX = 40;
+  var PAD_SORT_KEYS = ['updated', 'created', 'title'];
+  function padHex(id) {
+    for (var i = 1; i < PAD_COLORS.length; i++) if (id && PAD_COLORS[i].id === id) return PAD_COLORS[i].hex;
+    return '';
+  }
+  var PAD_FOLDER_PATH = 'M2.5 6.6c0-.9.7-1.6 1.6-1.6h5.1l2.1 2.3h8.6c.9 0 1.6.7 1.6 1.6v9c0 .9-.7 1.6-1.6 1.6H4.1c-.9 0-1.6-.7-1.6-1.6z';
+  function padFolderIcon(color) {
+    var h = padHex(color);
+    return '<svg class="fic" viewBox="0 0 24 24" aria-hidden="true"' + (h ? ' style="color:' + h + '"' : '') + '><path d="' + PAD_FOLDER_PATH + '" fill="currentColor"/></svg>';
+  }
+  var PAD_ICON = {
+    all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h5"/></svg>',
+    fav: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" fill="currentColor"/></svg>',
+    favOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+    caret: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg>',
+    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" stroke-width="2.6"/></svg>',
+    root: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>'
+  };
+
+  function padOk() { return !!(S.store && typeof S.store.watchPad === 'function' && typeof S.store.padCommit === 'function' && typeof S.store.newPadId === 'function'); }
+  function padIsPhone() { return !window.matchMedia || window.matchMedia('(max-width: 899px)').matches; }
+  function padByName(a, b) { return a.name.localeCompare(b.name, 'ko', { numeric: true }) || ((a.created || 0) - (b.created || 0)); }
+
+  /* 폴더 나무: byId · kids(위 폴더 id → 하위 폴더 목록) · parent(실제 위 폴더) · 메모 개수(direct: 그 폴더만, total: 하위 폴더까지) */
+  function padBuild() {
+    var P = S.pad, byId = {}, kids = {}, parent = {}, direct = {}, total = {};
+    P.folders.forEach(function (f) { byId[f.id] = f; });
+    P.folders.forEach(function (f) {
+      var p = f.parent && byId[f.parent] ? f.parent : '', seen = {}, cur = p, n = 0;
+      seen[f.id] = true;
+      while (cur) {   // 서로가 서로의 안에 들어간 폴더(두 기기에서 동시에 옮긴 경우)는 맨 위에 둠
+        if (seen[cur] || ++n > 500) { p = ''; break; }
+        seen[cur] = true;
+        cur = byId[cur].parent && byId[byId[cur].parent] ? byId[cur].parent : '';
+      }
+      parent[f.id] = p;
+    });
+    P.folders.forEach(function (f) { (kids[parent[f.id]] = kids[parent[f.id]] || []).push(f); });
+    Object.keys(kids).forEach(function (k) { kids[k].sort(padByName); });
+    var live = 0, fav = 0;
+    P.notes.forEach(function (n) {
+      if (n.trashed) return;
+      live++; if (n.fav) fav++;
+      var f = byId[n.folder] ? n.folder : '';
+      direct[f] = (direct[f] || 0) + 1;
+    });
+    (function sum(pid) {
+      var t = direct[pid] || 0;
+      (kids[pid] || []).forEach(function (f) { t += sum(f.id); });
+      total[pid] = t;
+      return t;
+    })('');
+    P.tree = { byId: byId, kids: kids, parent: parent, direct: direct, total: total, all: live, fav: fav, trash: P.notes.length - live };
+  }
+  function padFolder(id) { return (id && S.pad.tree && S.pad.tree.byId[id]) || null; }
+  function padNote(id) {
+    for (var i = 0; i < S.pad.notes.length; i++) if (S.pad.notes[i].id === id) return S.pad.notes[i];
+    return null;
+  }
+  function padNoteFolder(n) { return padFolder(n.folder) ? n.folder : ''; }
+  function padPath(id) {   // 맨 위 폴더부터 그 폴더까지
+    var out = [], cur = id, n = 0;
+    while (cur && padFolder(cur) && n++ < 500) { out.unshift(padFolder(cur)); cur = S.pad.tree.parent[cur]; }
+    return out;
+  }
+  function padDesc(id) {   // 하위 폴더 전부 (하위의 하위까지)
+    var out = [];
+    (function walk(pid) { (S.pad.tree.kids[pid] || []).forEach(function (f) { out.push(f.id); walk(f.id); }); })(id);
+    return out;
+  }
+  /* 펼친 폴더 (기기마다 기억) */
+  function padIsOpen(id) { return !!S.padOpen[id]; }
+  function padOpenSet(id, on) {
+    if (on) S.padOpen[id] = 1; else delete S.padOpen[id];
+    writePref('padOpen', JSON.stringify(Object.keys(S.padOpen).slice(-300)));
+  }
+
+  /* 날짜 표시: 오늘이면 '오후 3:20', 올해면 '11월 13일', 그 밖에는 '2025. 11. 13.' */
+  function padTime(d) { var h = d.getHours(); return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + pad(d.getMinutes()); }
+  function padWhen(ts) {
+    if (!ts) return '';
+    var d = new Date(ts), now = new Date();
+    if (ymd(d) === today()) return padTime(d);
+    if (d.getFullYear() === now.getFullYear()) return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+    return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+  }
+  function padWhenFull(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + WD[d.getDay()] + ') ' + padTime(d);
+  }
+  function padFirstLine(s) {
+    var m = String(s || '').split('\n');
+    for (var i = 0; i < m.length; i++) if (m[i].trim()) return m[i].trim();
+    return '';
+  }
+  function padTitleOf(n) { return String(n.title || '').trim() || padFirstLine(n.body) || '제목 없음'; }
+  /* 카드에 보일 내용: 제목이 없으면 첫 줄이 제목 자리에 나오므로 그다음부터. 찾는 낱말이 뒤쪽에 있으면 그 근처를 */
+  function padPreview(n, q) {
+    var b = String(n.body || '');
+    if (!String(n.title || '').trim()) {
+      var lines = b.split('\n'), i = 0;
+      while (i < lines.length && !lines[i].trim()) i++;
+      b = lines.slice(i + 1).join('\n');
+    }
+    b = b.replace(/^\s+/, '');
+    if (q) {
+      var k = b.toLowerCase().indexOf(q.toLowerCase());
+      if (k > 120) b = '…' + b.slice(k - 50);
+    }
+    return b.slice(0, 420);
+  }
+  function padHl(text, q) {   // 찾는 낱말에 노란 표시
+    text = String(text);
+    if (!q) return esc(text);
+    var lt = text.toLowerCase(), lq = q.toLowerCase(), out = '', i = 0, j;
+    if (lt.length !== text.length) return esc(text);
+    while ((j = lt.indexOf(lq, i)) >= 0) {
+      out += esc(text.slice(i, j)) + '<mark>' + esc(text.slice(j, j + lq.length)) + '</mark>';
+      i = j + lq.length;
+    }
+    return out + esc(text.slice(i));
+  }
+  function padLines(n) {   // 저장된 메모 내용 → 줄 목록 (진하게 포함). 예전 기기가 그냥 글자만 고쳤으면 그쪽을 따름
+    var plain = typeof n.body === 'string' ? n.body : '';
+    if (typeof n.bodyHtml === 'string' && n.bodyHtml) {
+      var lines = rtFromHtml(n.bodyHtml);
+      if (rtText(lines) === plain) return lines;
+    }
+    return rtFromText(plain);
+  }
+  function padNorm(d) {   // 받은 자료 정리 (빠진 값은 기본값으로)
+    var folders = [], notes = [];
+    (d && d.folders || []).forEach(function (f) {
+      if (!f || !f.id || typeof f.name !== 'string' || !f.name.trim()) return;
+      folders.push({ id: String(f.id), name: f.name.trim().slice(0, PAD_NAME_MAX), parent: typeof f.parent === 'string' ? f.parent : '', color: padHex(f.color) ? f.color : '', created: +f.created || 0, updated: +f.updated || 0 });
+    });
+    (d && d.notes || []).forEach(function (n) {
+      if (!n || !n.id) return;
+      notes.push({
+        id: String(n.id), folder: typeof n.folder === 'string' ? n.folder : '',
+        title: typeof n.title === 'string' ? n.title : '', body: typeof n.body === 'string' ? n.body : '',
+        bodyHtml: typeof n.bodyHtml === 'string' ? n.bodyHtml : '', fav: n.fav === true,
+        trashed: Number(n.trashed) > 0 ? Number(n.trashed) : 0, created: +n.created || 0, updated: +n.updated || +n.created || 0
+      });
+    });
+    return { folders: folders, notes: notes };
+  }
+
+  function subscribePad() {
+    if (!S.store || S.unsub.pad || !padOk()) return;
+    S.unsub.pad = S.store.watchPad(function (d) {
+      var nd = padNorm(d);
+      S.pad.folders = nd.folders; S.pad.notes = nd.notes; S.pad.loaded = true;
+      padBuild();
+      padSyncEditor();
+      if (S.view === 'pad') renderPad();
+    });
+  }
+  function padReset() {
+    clearTimeout(PE.timer);
+    S.pad.folders = []; S.pad.notes = []; S.pad.loaded = false; S.pad.tree = null;
+    S.pad.sel = { kind: 'all', id: '' }; S.pad.open = null; S.pad.q = '';
+    PE = peBlank();
+  }
+
+  /* ── 화면 단계와 '뒤로 가기' (휴대폰: 폴더 목록 0 → 메모 목록 1 → 메모 2, PC: 메모를 열 때만) ── */
+  var padHist = 0, padSkipPop = 0, padSheetPushed = false;   // 쌓아 둔 기록 수 · 무시할 '뒤로' 수 · 폴더 창이 기록을 하나 쌓았는지
+  var PAD_DEPTH = { side: 0, list: 1, note: 2 };
+  function padSetPane(p) {
+    var deeper = PAD_DEPTH[p] > PAD_DEPTH[S.pad.pane];
+    S.pad.pane = p;
+    if (deeper && (p === 'note' || padIsPhone())) {
+      try { history.pushState({ pad: PAD_DEPTH[p] }, ''); padHist++; } catch (e) { /* 뒤로 가기 없이 */ }
+    }
+  }
+  function padPopOne() {   // 화면의 ‹ 단추로 돌아갔을 때, 쌓아 둔 뒤로 가기 기록도 하나 지움
+    if (padHist > 0) { padHist--; padSkipPop++; try { history.back(); } catch (e) { padSkipPop--; } }
+  }
+  function padUp() {
+    if (S.pad.pane === 'note') { padCloseNote(); S.pad.pane = 'list'; }
+    else if (S.pad.pane === 'list') S.pad.pane = 'side';
+    renderPad();
+  }
+  function padBackBtn() { padUp(); padPopOne(); }
+  function padOnPop() {
+    if (padSkipPop > 0) { padSkipPop--; return; }
+    if (padHist <= 0) return;
+    padHist--;
+    if (padSheetPushed) { padSheetPushed = false; closePadFolder(true); closePadPick(true); return; }   // 폴더 창: 창만 닫음
+    if (S.view !== 'pad') return;
+    if (!$('#padMenu').hidden || !$('#drawer').hidden) {   // 메뉴가 열려 있으면 메뉴만 닫고, 지금 단계는 그대로
+      padMenu(false); closeDrawer();
+      try { history.pushState({ pad: PAD_DEPTH[S.pad.pane] }, ''); padHist++; } catch (e) { /* 무시 */ }
+      return;
+    }
+    padUp();
+  }
+  function padSheetPush() {   // 폴더 창을 열 때: 휴대폰의 '뒤로'로 창만 닫히게 기록을 하나 쌓음
+    if (padSheetPushed) return;
+    try { history.pushState({ padSheet: 1 }, ''); padHist++; padSheetPushed = true; } catch (e) { /* 무시 */ }
+  }
+  function padEnter() {
+    S.pad.pane = padIsPhone() ? 'side' : 'list';
+    S.pad.q = ''; $('#padQ').value = '';
+    renderPad();
+  }
+  function padLeave() {   // 메모장을 떠날 때: 저장하고 닫음, 쌓아 둔 뒤로 가기 기록도 한 번에 정리
+    padSheetPushed = false;
+    padCloseNote(); closePadFolder(true); closePadPick(true); padMenu(false);
+    if (padHist > 0) { var n = padHist; padHist = 0; padSkipPop++; try { history.go(-n); } catch (e) { padSkipPop--; } }
+  }
+
+  /* ── 그리기 ── */
+  function renderPad() {
+    if (S.view !== 'pad') return;
+    var root = $('#pad'), msg = $('#padMsg'), P = S.pad;
+    if (!padOk() || !P.loaded) {
+      msg.textContent = !S.store ? '' : !padOk() ? '메모장을 쓰려면 store.js 파일도 새 버전(v1.11)으로 올려 주세요. 업데이트 파일을 모두 다시 올리면 됩니다.' : '불러오는 중…';
+      msg.hidden = false; root.hidden = true;
+      return;
+    }
+    msg.hidden = true; root.hidden = false;
+    if (P.sel.kind === 'folder' && !padFolder(P.sel.id)) P.sel = { kind: 'all', id: '' };   // 다른 기기에서 지운 폴더
+    root.dataset.pane = P.pane;
+    renderPadSide();
+    var open = !!P.open;
+    $('#padListWrap').hidden = open; $('#padEditor').hidden = !open;
+    $('#padNew').hidden = open || (P.sel.kind === 'trash' && P.pane !== 'side');
+    if (!open) renderPadList();
+  }
+  function renderPadSide() {
+    var P = S.pad, T = P.tree, sel = P.sel;
+    function nav(kind, label, n) {
+      var on = sel.kind === kind;
+      return '<button type="button" class="pn' + (on ? ' on' : '') + '" data-pad="' + kind + '"' + (on ? ' aria-current="true"' : '') + '>' + PAD_ICON[kind] +
+        '<span class="pnm">' + label + '</span><span class="pc">' + n + '</span></button>';
+    }
+    $('#padNav').innerHTML = nav('all', '모든 메모', T.all) + nav('fav', '즐겨찾기', T.fav);
+    $('#padNavEnd').innerHTML = nav('trash', '휴지통', T.trash);
+    var html = '';
+    (function rows(pid, lv) {
+      (T.kids[pid] || []).forEach(function (f) {
+        var kids = T.kids[f.id] || [], open = padIsOpen(f.id), on = sel.kind === 'folder' && sel.id === f.id, id = esc(f.id);
+        html += '<div class="pt-row' + (on ? ' on' : '') + '" role="treeitem" aria-level="' + (lv + 1) + '"' + (kids.length ? ' aria-expanded="' + open + '"' : '') + ' style="--lv:' + Math.min(lv, 6) + '">' +
+          (kids.length ? '<button type="button" class="pt-caret' + (open ? ' open' : '') + '" data-toggle="' + id + '" aria-label="' + esc(f.name) + ' 하위 폴더 ' + (open ? '접기' : '펼치기') + '">' + PAD_ICON.caret + '</button>' : '<span class="pt-caret none"></span>') +
+          '<button type="button" class="pt-name" data-folder="' + id + '"' + (on ? ' aria-current="true"' : '') + '>' + padFolderIcon(f.color) +
+          '<span class="ptn">' + esc(f.name) + '</span><span class="pc">' + (T.total[f.id] || 0) + '</span></button></div>';
+        if (kids.length && open) rows(f.id, lv + 1);
+      });
+    })('', 0);
+    $('#padTree').innerHTML = html || '<p class="pt-empty">아직 폴더가 없습니다.<br>‘+ 새 폴더’를 눌러 만들어 보세요.</p>';
+  }
+  function padScope() {   // 지금 보는 곳의 메모 (찾기 전)
+    var P = S.pad, sel = P.sel;
+    if (sel.kind === 'trash') return P.notes.filter(function (n) { return n.trashed; });
+    var live = P.notes.filter(function (n) { return !n.trashed; });
+    if (sel.kind === 'fav') return live.filter(function (n) { return n.fav; });
+    if (sel.kind === 'folder') {
+      if (P.q.trim()) {   // 폴더에서 찾을 때는 하위 폴더까지
+        var ids = {}; ids[sel.id] = true;
+        padDesc(sel.id).forEach(function (x) { ids[x] = true; });
+        return live.filter(function (n) { return ids[padNoteFolder(n)]; });
+      }
+      return live.filter(function (n) { return padNoteFolder(n) === sel.id; });
+    }
+    return live;
+  }
+  function padSorted(list) {
+    var k = S.padSort, trash = S.pad.sel.kind === 'trash';
+    return list.slice().sort(function (a, b) {
+      if (trash) return (b.trashed - a.trashed) || (b.updated - a.updated);   // 휴지통: 최근에 넣은 것부터
+      if (k === 'title') return padTitleOf(a).localeCompare(padTitleOf(b), 'ko', { numeric: true }) || (b.updated - a.updated);
+      return ((b[k] || 0) - (a[k] || 0)) || (b.updated - a.updated);
+    });
+  }
+  function padCard(n, showFolder, q) {
+    var hasTitle = !!String(n.title || '').trim(), first = padFirstLine(n.body), t = padTitleOf(n), pv = padPreview(n, q);
+    var f = showFolder ? padFolder(padNoteFolder(n)) : null;
+    var when = S.pad.sel.kind === 'trash' ? '휴지통 · ' + padWhen(n.trashed) : padWhen(S.padSort === 'created' ? n.created : n.updated);
+    return '<button type="button" class="pcard" data-note="' + esc(n.id) + '">' +
+      '<span class="pc-t' + (!hasTitle && !first ? ' none' : '') + '">' + padHl(t, q) + '</span>' +
+      (pv.trim() ? '<span class="pc-b">' + padHl(pv, q) + '</span>' : '') +
+      '<span class="pc-f">' + (n.fav ? '<span class="pc-star" aria-label="즐겨찾기">★</span>' : '') +
+      (f ? '<span class="pc-fd">' + padFolderIcon(f.color) + esc(f.name) + '</span>' : '') +
+      '<span class="pc-d">' + esc(when) + '</span></span></button>';
+  }
+  function renderPadList() {
+    var P = S.pad, T = P.tree, sel = P.sel, q = P.q.trim(), f = sel.kind === 'folder' ? padFolder(sel.id) : null;
+    var title = f ? f.name : sel.kind === 'fav' ? '즐겨찾기' : sel.kind === 'trash' ? '휴지통' : '모든 메모';
+    var crumb = $('#padCrumb');
+    if (f) {
+      crumb.innerHTML = '<button type="button" data-pad="all">메모장</button>' + padPath(f.id).slice(0, -1).map(function (x) {
+        return '<span class="sep">›</span><button type="button" data-folder="' + esc(x.id) + '">' + esc(x.name) + '</button>';
+      }).join('');
+      crumb.hidden = false;
+    } else { crumb.innerHTML = ''; crumb.hidden = true; }
+    $('#padTitle').innerHTML = (f ? padFolderIcon(f.color) : '') + '<span>' + esc(title) + '</span>';
+    var subs = f ? (T.kids[f.id] || []) : [], sb = $('#padSubs');
+    sb.hidden = !f || !!q;
+    sb.innerHTML = f ? subs.map(function (x) {
+      return '<button type="button" class="psub" data-folder="' + esc(x.id) + '">' + padFolderIcon(x.color) + '<span class="psn">' + esc(x.name) + '</span><span class="pc">' + (T.total[x.id] || 0) + '</span></button>';
+    }).join('') + '<button type="button" class="psub add" data-pact="sub">+ 하위 폴더</button>' : '';
+    var list = padScope();
+    if (q) {
+      var lq = q.toLowerCase();
+      list = list.filter(function (n) { return (n.title + '\n' + n.body).toLowerCase().indexOf(lq) >= 0; });
+    }
+    list = padSorted(list);
+    var showFolder = !f || !!q;
+    $('#padCount').textContent = q ? '찾은 메모 ' + list.length + '개' : '메모 ' + list.length + '개' + (subs.length ? ' · 하위 폴더 ' + subs.length + '개' : '');
+    var box = $('#padList');
+    box.dataset.layout = S.padLayout;
+    if (list.length) box.innerHTML = list.map(function (n) { return padCard(n, showFolder, q); }).join('');
+    else {
+      var empty = q ? '‘' + esc(q) + '’이(가) 들어간 메모가 없습니다.'
+        : sel.kind === 'trash' ? '휴지통이 비어 있습니다.'
+        : sel.kind === 'fav' ? '즐겨찾기한 메모가 없습니다.<br>메모를 연 뒤 ☆를 누르면 여기에 모입니다.'
+        : f ? '이 폴더에는 아직 메모가 없습니다.<br>오른쪽 아래 연필 단추로 새 메모를 적어 보세요.'
+        : '아직 메모가 없습니다.<br>오른쪽 아래 연필 단추로 첫 메모를 적어 보세요.';
+      box.innerHTML = '<p class="pad-empty">' + empty + '</p>';
+    }
+    $('#padQ').placeholder = f ? '‘' + f.name + '’에서 찾기' : sel.kind === 'trash' ? '휴지통에서 찾기' : sel.kind === 'fav' ? '즐겨찾기에서 찾기' : '모든 메모에서 찾기';
+    $('#padMore').hidden = !f;
+    $('#padSort').hidden = sel.kind === 'trash';
+    $('#padSort').value = S.padSort;
+    var lb = $('#padLayout'), grid = S.padLayout !== 'list';
+    lb.innerHTML = grid ? PAD_ICON.list : PAD_ICON.grid;
+    lb.setAttribute('aria-label', grid ? '목록으로 보기' : '카드로 보기');
+    lb.title = grid ? '목록으로 보기' : '카드로 보기';
+    $('#padTrashBar').hidden = sel.kind !== 'trash';
+    $('#padEmptyTrash').disabled = !T.trash;
+  }
+
+  /* ── 고르기 · 폴더 메뉴 ── */
+  function padSelect(sel) {
+    padMenu(false);
+    if (S.pad.open) { padCloseNote(); padPopOne(); S.pad.pane = 'list'; }
+    S.pad.sel = sel;
+    S.pad.q = ''; $('#padQ').value = '';
+    if (sel.kind === 'folder') padPath(sel.id).forEach(function (x) { if (x.id !== sel.id && !padIsOpen(x.id)) padOpenSet(x.id, true); });
+    if (S.pad.pane === 'side') padSetPane('list');
+    renderPad();
+    window.scrollTo(0, 0);
+  }
+  function padMenu(on) {
+    var m = $('#padMenu');
+    if (!m) return;
+    m.hidden = !on;
+    $('#padMore').setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  function padMenuAct(act) {
+    padMenu(false);
+    var f = S.pad.sel.kind === 'folder' ? padFolder(S.pad.sel.id) : null;
+    if (!f) return;
+    if (act === 'sub') padFolderSheet('new', f.id);
+    else if (act === 'edit') padFolderSheet('edit', f.id);
+    else if (act === 'move') padPickOpen({ kind: 'folder', id: f.id });
+    else if (act === 'del') padDeleteFolder(f.id);
+  }
+
+  /* ── 폴더 만들기 · 이름과 색 바꾸기 ── */
+  var PF = null;   // { mode: 'new' | 'edit', id, parent, color }
+  function padFolderSheet(mode, ref) {
+    if (!padOk()) return;
+    var f = mode === 'edit' ? padFolder(ref) : null, par = mode === 'new' ? padFolder(ref) : null;
+    if (mode === 'edit' && !f) return;
+    PF = { mode: mode, id: f ? f.id : '', parent: f ? S.pad.tree.parent[f.id] : (par ? par.id : ''), color: f ? f.color : (par ? par.color : '') };
+    $('#pfTitle').textContent = f ? '폴더 이름 · 색 바꾸기' : par ? '하위 폴더 만들기' : '새 폴더';
+    $('#pfWhere').textContent = f ? '' : par ? '‘' + par.name + '’ 폴더 안에 만듭니다.' : '맨 위에 만듭니다. (폴더를 연 뒤 ‘+ 하위 폴더’를 누르면 그 안에 만들어집니다.)';
+    $('#pfWhere').hidden = !!f;
+    $('#pfName').value = f ? f.name : '';
+    $('#pfErr').textContent = '';
+    $('#pfOk').textContent = f ? '저장' : '만들기';
+    renderPfColors();
+    $('#padFolderSheet').hidden = false;
+    padSheetPush();
+    setTimeout(function () { try { $('#pfName').focus(); } catch (e) { /* 무시 */ } }, 30);
+  }
+  function renderPfColors() {
+    $('#pfColors').innerHTML = PAD_COLORS.map(function (c) {
+      var on = PF && PF.color === c.id;
+      return '<button type="button" role="radio" aria-checked="' + on + '" data-color="' + c.id + '" class="' + (on ? 'on' : '') + '" aria-label="' + c.name + '" title="' + c.name + '">' + padFolderIcon(c.id) + '</button>';
+    }).join('');
+  }
+  function closePadFolder(fromPop) {
+    var el = $('#padFolderSheet');
+    if (!el || el.hidden) { PF = null; return; }
+    el.hidden = true; PF = null;
+    if (!fromPop && padSheetPushed) { padSheetPushed = false; padPopOne(); }
+  }
+  function pfSubmit() {
+    if (!PF || !S.store) return;
+    var name = $('#pfName').value.replace(/\s+/g, ' ').trim().slice(0, PAD_NAME_MAX), now = Date.now();
+    if (!name) { $('#pfErr').textContent = '폴더 이름을 적어 주십시오.'; $('#pfName').focus(); return; }
+    var dup = (S.pad.tree.kids[PF.parent] || []).some(function (x) { return x.id !== PF.id && x.name.toLowerCase() === name.toLowerCase(); });
+    if (dup) { $('#pfErr').textContent = '같은 곳에 같은 이름의 폴더가 이미 있습니다. 다른 이름을 적어 주십시오.'; $('#pfName').focus(); return; }
+    if (PF.mode === 'edit') {
+      var f = padFolder(PF.id);
+      if (f && (f.name !== name || f.color !== PF.color)) {
+        S.store.padCommit([{ kind: 'folder', op: 'update', id: PF.id, data: { name: name, color: PF.color, updated: now } }]);
+        toast('폴더를 바꿨습니다.');
+      }
+    } else {
+      var id = S.store.newPadId(), parent = PF.parent;
+      S.store.padCommit([{ kind: 'folder', op: 'set', id: id, data: { name: name, parent: parent, color: PF.color, created: now, updated: now } }]);
+      if (parent && !padIsOpen(parent)) padOpenSet(parent, true);
+      toast('‘' + name + '’ 폴더를 만들었습니다.');
+    }
+    closePadFolder();
+  }
+
+  /* ── 옮길 곳 고르기 (메모 또는 폴더) ── */
+  var PP = null;   // { kind: 'note' | 'folder', id }
+  function padPickOpen(what) {
+    if (!padOk()) return;
+    var T = S.pad.tree, cur, skip = {}, html = '';
+    if (what.kind === 'note') {
+      var n = what.id === PE.id ? peNote() : padNote(what.id);
+      if (!n) return;
+      cur = padFolder(n.folder) ? n.folder : '';
+      $('#ppTitle').textContent = '메모를 옮길 폴더 고르기';
+      $('#ppWhat').textContent = '‘' + padTitleOf(n).slice(0, 40) + '’';
+    } else {
+      var f = padFolder(what.id);
+      if (!f) return;
+      cur = T.parent[f.id];
+      skip[f.id] = true; padDesc(f.id).forEach(function (x) { skip[x] = true; });   // 자기 자신과 그 안으로는 옮길 수 없음
+      $('#ppTitle').textContent = '폴더를 옮길 곳 고르기';
+      $('#ppWhat').textContent = '‘' + f.name + '’ 폴더(하위 폴더와 메모도 함께)';
+    }
+    PP = what;
+    html += '<button type="button" class="pp-row pp-root" data-dest=""' + (cur === '' ? ' disabled' : '') + '>' + PAD_ICON.root +
+      '<span>' + (what.kind === 'note' ? '폴더 없음' : '맨 위 (다른 폴더 밖)') + '</span>' + (cur === '' ? '<small>지금 있는 곳</small>' : '') + '</button>';
+    (function rows(pid, lv) {
+      (T.kids[pid] || []).forEach(function (x) {
+        if (skip[x.id]) return;
+        var here = x.id === cur;
+        html += '<button type="button" class="pp-row" style="--lv:' + Math.min(lv, 6) + '" data-dest="' + esc(x.id) + '"' + (here ? ' disabled' : '') + '>' + padFolderIcon(x.color) +
+          '<span>' + esc(x.name) + '</span>' + (here ? '<small>지금 있는 곳</small>' : '') + '</button>';
+        rows(x.id, lv + 1);
+      });
+    })('', 0);
+    $('#ppList').innerHTML = html;
+    $('#padPickSheet').hidden = false;
+    padSheetPush();
+  }
+  function closePadPick(fromPop) {
+    var el = $('#padPickSheet');
+    if (!el || el.hidden) { PP = null; return; }
+    el.hidden = true; PP = null;
+    if (!fromPop && padSheetPushed) { padSheetPushed = false; padPopOne(); }
+  }
+  function padMoveTo(dest) {
+    var what = PP, now = Date.now(), name = dest ? (padFolder(dest) || {}).name : '';
+    closePadPick();
+    if (!what || !S.store || (dest && !padFolder(dest))) return;
+    if (what.kind === 'note') {
+      if (what.id === PE.id) {
+        PE.cur.folder = dest;
+        if (PE.exists) { peSave(); S.store.padCommit([{ kind: 'note', op: 'update', id: what.id, data: { folder: dest } }]); }
+        padFillMeta(PE.cur);
+      } else S.store.padCommit([{ kind: 'note', op: 'update', id: what.id, data: { folder: dest } }]);
+      toast(dest ? '‘' + name + '’ 폴더로 옮겼습니다.' : '폴더 밖(폴더 없음)으로 옮겼습니다.');
+    } else {
+      if (dest === what.id || padDesc(what.id).indexOf(dest) >= 0) return;
+      S.store.padCommit([{ kind: 'folder', op: 'update', id: what.id, data: { parent: dest, updated: now } }]);
+      if (dest && !padIsOpen(dest)) padOpenSet(dest, true);
+      toast(dest ? '‘' + name + '’ 폴더 안으로 옮겼습니다.' : '맨 위로 옮겼습니다.');
+    }
+  }
+
+  /* ── 폴더 지우기: 하위 폴더도 함께, 안의 메모는 휴지통으로 (바로 뒤 '되돌리기'로 되살림) ── */
+  function padDeleteFolder(id) {
+    var f = padFolder(id);
+    if (!f || !S.store) return;
+    var ids = [id].concat(padDesc(id)), inSet = {};
+    ids.forEach(function (x) { inSet[x] = true; });
+    var inside = S.pad.notes.filter(function (n) { return !n.trashed && inSet[padNoteFolder(n)]; });
+    var msg = '‘' + f.name + '’ 폴더를 지울까요?';
+    if (ids.length > 1) msg += '\n안에 있는 하위 폴더 ' + (ids.length - 1) + '개도 함께 지워집니다.';
+    msg += inside.length ? '\n폴더 안의 메모 ' + inside.length + '개는 휴지통으로 옮겨집니다(휴지통에서 복원할 수 있습니다).' : '\n폴더 안에 메모는 없습니다.';
+    if (!window.confirm(msg)) return;
+    var now = Date.now(), up = S.pad.tree.parent[id] || '';
+    var keep = ids.map(function (x) { return padFolder(x); }).filter(Boolean).map(function (x) {
+      return { id: x.id, name: x.name, parent: x.parent || '', color: x.color || '', created: x.created || now, updated: x.updated || now };
+    });
+    var ops = inside.map(function (n) { return { kind: 'note', op: 'update', id: n.id, data: { trashed: now } }; });
+    ids.forEach(function (x) { ops.push({ kind: 'folder', op: 'remove', id: x }); });
+    S.store.padCommit(ops);
+    S.pad.sel = up && padFolder(up) ? { kind: 'folder', id: up } : { kind: 'all', id: '' };
+    renderPad();
+    toast('‘' + f.name + '’ 폴더를 지웠습니다.' + (inside.length ? ' 메모 ' + inside.length + '개는 휴지통에 있습니다.' : ''), null, {
+      label: '되돌리기', fn: function () {
+        if (!S.store || !padOk()) return;
+        var back = keep.map(function (x) { return { kind: 'folder', op: 'set', id: x.id, data: { name: x.name, parent: x.parent, color: x.color, created: x.created, updated: x.updated } }; });
+        inside.forEach(function (n) { back.push({ kind: 'note', op: 'update', id: n.id, data: { trashed: 0 } }); });
+        S.store.padCommit(back);
+        toast('폴더를 되살렸습니다.');
+      }
+    }, 8000);
+  }
+  function padEmptyTrash() {
+    var list = S.pad.notes.filter(function (n) { return n.trashed; });
+    if (!list.length || !S.store) return;
+    if (!window.confirm('휴지통의 메모 ' + list.length + '개를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
+    S.store.padCommit(list.map(function (n) { return { kind: 'note', op: 'remove', id: n.id }; }));
+    toast('휴지통을 비웠습니다.');
+  }
+
+  /* ── 메모 쓰기 ── */
+  /* 열린 메모: id · exists(저장됨) · seen(목록에서 한 번이라도 봄) · cur(화면에 열린 메모의 가장 새 내용 — 방금 저장한 것이 목록에 오기 전에도 그대로) · dirty(아직 저장 안 한 고침) */
+  function peBlank() { return { id: '', exists: false, seen: false, cur: null, dirty: false, timer: null, state: '' }; }
+  var PE = peBlank(), peRange = null;
+  function peNote() { return PE.id ? PE.cur : null; }
+  function peFocused() { var a = document.activeElement; return !!a && (a.id === 'peTitle' || a.id === 'peBody' || $('#peBody').contains(a)); }
+  function padOpenNote(id) {
+    var n = padNote(id);
+    if (!n) return;
+    padMenu(false);
+    S.pad.open = id;
+    PE = peBlank(); PE.id = id; PE.exists = true; PE.seen = true; PE.cur = Object.assign({}, n);
+    padFillEditor(n, true);
+    padSetPane('note');
+    renderPad();
+    window.scrollTo(0, 0);
+  }
+  function padNewNote() {
+    if (!padOk() || !S.pad.loaded) return;
+    padMenu(false);
+    if (S.pad.open) padCloseNote();
+    if (S.pad.sel.kind === 'trash' || S.pad.pane === 'side') S.pad.sel = { kind: 'all', id: '' };   // 휴대폰 첫 화면(폴더 목록)에서 쓰면 폴더 없는 메모
+    var sel = S.pad.sel, now = Date.now();
+    PE = peBlank();
+    PE.id = S.store.newPadId();
+    PE.cur = { id: PE.id, folder: sel.kind === 'folder' && padFolder(sel.id) ? sel.id : '', title: '', body: '', bodyHtml: '', fav: sel.kind === 'fav', trashed: 0, created: now, updated: now };
+    S.pad.open = PE.id;
+    padFillEditor(PE.cur, true);
+    if (S.pad.pane === 'side') padSetPane('list');   // 폴더 목록에서 바로 쓴 메모는 닫으면 메모 목록으로
+    padSetPane('note');
+    renderPad();
+    window.scrollTo(0, 0);
+    try { $('#peTitle').focus(); } catch (e) { /* 무시 */ }
+  }
+  function padFillEditor(n, force) {
+    var t = $('#peTitle'), ed = $('#peBody');
+    if (force || t.value !== (n.title || '')) t.value = n.title || '';
+    var html = rtHtml(padLines(n));
+    if (force || rtHtml(rtFromDom(ed)) !== html) { ed.innerHTML = html; peRange = null; }
+    ed.classList.toggle('is-empty', notesLooksEmpty(ed));
+    padFillMeta(n);
+  }
+  function padFillMeta(n) {
+    var f = padFolder(n.folder), trashed = !!n.trashed;
+    $('#peFolder').innerHTML = padFolderIcon(f ? f.color : '') + '<span>' + esc(f ? f.name : '폴더 없음') + '</span>';
+    $('#peFolder').disabled = trashed;
+    var fb = $('#peFav');
+    fb.innerHTML = n.fav ? PAD_ICON.fav : PAD_ICON.favOff;
+    fb.setAttribute('aria-pressed', n.fav ? 'true' : 'false');
+    fb.setAttribute('aria-label', n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기');
+    fb.title = n.fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 넣기';
+    fb.hidden = trashed; $('#peDel').hidden = trashed; $('#peBold').hidden = trashed;
+    $('#peTrash').hidden = !trashed;
+    $('#peTitle').readOnly = trashed;
+    $('#peBody').setAttribute('contenteditable', trashed ? 'false' : 'true');
+    peMeta(n);
+  }
+  function peMeta(n, state) {   // state: '저장 중…' · '저장됨' (주지 않으면 마지막 상태 그대로)
+    n = n || peNote();
+    if (!n) return;
+    if (state !== undefined) PE.state = state;
+    var txt = !PE.exists ? '새 메모' : '고친 날 ' + padWhenFull(n.updated) + (n.created && padWhenFull(n.created) !== padWhenFull(n.updated) ? ' · 만든 날 ' + padWhenFull(n.created) : '');
+    if (n.trashed) txt += ' · 휴지통에 넣은 날 ' + padWhenFull(n.trashed);
+    else if (PE.state) txt += ' · ' + PE.state;
+    $('#peMeta').textContent = txt;
+  }
+  function peTouch() {
+    if (!PE.id) return;
+    var n = peNote();
+    if (!n || n.trashed) return;
+    PE.dirty = true;
+    $('#peBody').classList.toggle('is-empty', notesLooksEmpty($('#peBody')));
+    peMeta(n, '저장 중…');
+    clearTimeout(PE.timer);
+    PE.timer = setTimeout(peSave, 600);
+  }
+  function peSave() {
+    clearTimeout(PE.timer); PE.timer = null;
+    if (!PE.id || !PE.dirty || !S.store || !padOk()) return;
+    var n = peNote();
+    PE.dirty = false;
+    if (!n || n.trashed) return;
+    var title = $('#peTitle').value.slice(0, PAD_TITLE_MAX), lines = rtFromDom($('#peBody')), body = rtText(lines);
+    var html = rtHasBold(lines) ? rtHtml(lines) : '', cut = false;
+    if (body.length > PAD_BODY_MAX) { body = body.slice(0, PAD_BODY_MAX); html = ''; cut = true; }
+    if (html.length > PAD_HTML_MAX) html = '';
+    var now = Date.now();
+    if (!PE.exists) {
+      if (!title.trim() && !body.trim()) { peMeta(n, ''); return; }   // 아직 아무것도 적지 않은 새 메모는 저장하지 않음
+      S.store.padCommit([{ kind: 'note', op: 'set', id: PE.id, data: { folder: n.folder, title: title, body: body, bodyHtml: html, fav: n.fav, trashed: 0, created: n.created, updated: now } }]);
+      PE.exists = true;
+    } else {
+      if (title === n.title && body === n.body && html === (n.bodyHtml || '')) { peMeta(n, '저장됨'); return; }
+      S.store.padCommit([{ kind: 'note', op: 'update', id: PE.id, data: { title: title, body: body, bodyHtml: html, updated: now } }]);
+    }
+    PE.cur = Object.assign({}, n, { title: title, body: body, bodyHtml: html, updated: now });
+    peMeta(PE.cur, '저장됨');
+    if (cut) toast('메모가 너무 길어 뒷부분은 저장되지 않았습니다. (10만 자까지)', 'error', null, 6000);
+  }
+  /* 메모를 닫을 때: 저장하고, 제목과 내용을 모두 비운 메모는 남기지 않음 */
+  function padCloseNote() {
+    if (!S.pad.open) return;
+    peSave();
+    var n = PE.exists ? PE.cur : null;
+    if (n && !n.trashed && S.store && !$('#peTitle').value.trim() && !rtText(rtFromDom($('#peBody'))).trim()) {
+      S.store.padCommit([{ kind: 'note', op: 'remove', id: PE.id }]);
+    }
+    S.pad.open = null; PE = peBlank();
+    var a = document.activeElement;
+    if (a && (a.id === 'peTitle' || a.id === 'peBody')) a.blur();
+  }
+  /* 다른 기기에서 바뀐 내용: 적는 중이 아니면 화면에 반영, 메모가 지워졌으면 닫음 */
+  function padSyncEditor() {
+    if (!S.pad.open || !PE.exists) return;
+    var n = padNote(PE.id);
+    if (!n) {
+      if (!PE.seen) return;   // 방금 만든 메모가 아직 목록에 오기 전
+      clearTimeout(PE.timer);
+      S.pad.open = null; PE = peBlank();
+      if (S.view === 'pad') { S.pad.pane = 'list'; padPopOne(); toast('다른 기기에서 지운 메모입니다.'); }
+      return;
+    }
+    PE.seen = true;
+    if ((n.updated || 0) >= (PE.cur.updated || 0) && !PE.dirty && !peFocused()) { PE.cur = Object.assign({}, n); padFillEditor(n, false); }
+    else { PE.cur.folder = n.folder; PE.cur.fav = n.fav; PE.cur.trashed = n.trashed; padFillMeta(PE.cur); }
+  }
+  function peFav() {
+    var n = peNote();
+    if (!n || n.trashed || !S.store) return;
+    var v = !n.fav;
+    if (PE.exists) { peSave(); S.store.padCommit([{ kind: 'note', op: 'update', id: PE.id, data: { fav: v } }]); }
+    PE.cur.fav = v;
+    padFillMeta(PE.cur);
+    toast(v ? '즐겨찾기에 넣었습니다.' : '즐겨찾기에서 뺐습니다.');
+  }
+  function peTrash() {
+    var n = peNote();
+    if (!n || !S.store) return;
+    peSave();
+    var id = PE.id, existed = PE.exists, empty = !$('#peTitle').value.trim() && !rtText(rtFromDom($('#peBody'))).trim();
+    clearTimeout(PE.timer);
+    S.pad.open = null; PE = peBlank();
+    S.pad.pane = 'list'; padPopOne();
+    if (!existed) { renderPad(); return; }   // 아직 저장하지 않은 새 메모: 그냥 닫음
+    if (empty) { S.store.padCommit([{ kind: 'note', op: 'remove', id: id }]); renderPad(); return; }
+    S.store.padCommit([{ kind: 'note', op: 'update', id: id, data: { trashed: Date.now() } }]);
+    renderPad();
+    toast('휴지통으로 옮겼습니다.', null, { label: '되돌리기', fn: function () { if (S.store && padOk()) S.store.padCommit([{ kind: 'note', op: 'update', id: id, data: { trashed: 0 } }]); } });
+  }
+  function peRestore() {
+    var n = peNote();
+    if (!n || !n.trashed || !S.store) return;
+    var f = padFolder(n.folder) ? n.folder : '';
+    S.store.padCommit([{ kind: 'note', op: 'update', id: n.id, data: { trashed: 0, folder: f } }]);
+    PE.cur.trashed = 0; PE.cur.folder = f;
+    padFillMeta(PE.cur);
+    toast(f ? '‘' + padFolder(f).name + '’ 폴더로 복원했습니다.' : '복원했습니다.');
+  }
+  function peKill() {
+    var n = peNote();
+    if (!n || !S.store) return;
+    if (!window.confirm('이 메모를 완전히 지울까요?\n지운 메모는 되돌릴 수 없습니다.')) return;
+    var id = n.id;
+    clearTimeout(PE.timer);
+    S.pad.open = null; PE = peBlank();
+    S.pad.pane = 'list'; padPopOne();
+    S.store.padCommit([{ kind: 'note', op: 'remove', id: id }]);
+    renderPad();
+    toast('메모를 완전히 지웠습니다.');
+  }
+  /* 진하게 (하루 메모 칸과 같은 방식) */
+  function peBoldState() {
+    var ed = $('#peBody'), sel = window.getSelection(), on = false, b = $('#peBold');
+    if (sel && sel.rangeCount && ed.contains(sel.anchorNode)) {
+      try { on = document.queryCommandState('bold'); } catch (e) { on = false; }
+    }
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function peToggleBold() {
+    var ed = $('#peBody'), sel = window.getSelection(), n = peNote();
+    if (!n || n.trashed) return;
+    if (document.activeElement !== ed) {
+      ed.focus();
+      var r = peRange && ed.contains(peRange.startContainer) ? peRange : null;
+      if (!r) { r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); }
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+    try { document.execCommand('bold', false, null); } catch (e) { /* 지원하지 않는 브라우저 */ }
+    peTouch();
+    peBoldState();
+  }
+
+  function bindPad() {
+    var side = $('#pad .pad-side');
+    side.addEventListener('click', function (e) {
+      var b;
+      if ((b = e.target.closest('[data-toggle]'))) { padOpenSet(b.dataset.toggle, !padIsOpen(b.dataset.toggle)); renderPadSide(); return; }
+      if ((b = e.target.closest('[data-folder]'))) { padSelect({ kind: 'folder', id: b.dataset.folder }); return; }
+      if ((b = e.target.closest('[data-pad]'))) { padSelect({ kind: b.dataset.pad, id: '' }); return; }
+    });
+    $('#padAddFolder').addEventListener('click', function () { padFolderSheet('new', ''); });
+    $('#padListWrap').addEventListener('click', function (e) {
+      var b;
+      if (!e.target.closest('#padMenu') && !e.target.closest('#padMore')) padMenu(false);
+      if ((b = e.target.closest('[data-pact]'))) { padMenuAct(b.dataset.pact); return; }
+      if ((b = e.target.closest('[data-note]'))) { padOpenNote(b.dataset.note); return; }
+      if ((b = e.target.closest('[data-folder]'))) { padSelect({ kind: 'folder', id: b.dataset.folder }); return; }
+      if ((b = e.target.closest('#padCrumb [data-pad]'))) { padSelect({ kind: 'all', id: '' }); return; }
+    });
+    $('#padBack').addEventListener('click', padBackBtn);
+    $('#padMore').addEventListener('click', function () { padMenu($('#padMenu').hidden); });
+    $('#padLayout').addEventListener('click', function () {
+      S.padLayout = S.padLayout === 'list' ? 'grid' : 'list'; writePref('padLayout', S.padLayout); renderPadList();
+    });
+    $('#padSort').addEventListener('change', function (e) {
+      S.padSort = PAD_SORT_KEYS.indexOf(e.target.value) >= 0 ? e.target.value : 'updated'; writePref('padSort', S.padSort); renderPadList();
+    });
+    var qTimer = null;
+    $('#padQ').addEventListener('input', function (e) {
+      clearTimeout(qTimer);
+      qTimer = setTimeout(function () { S.pad.q = e.target.value.slice(0, 100); renderPadList(); }, 150);
+    });
+    $('#padSearch').addEventListener('submit', function (e) {
+      e.preventDefault(); clearTimeout(qTimer); S.pad.q = $('#padQ').value.slice(0, 100); renderPadList();
+      try { $('#padQ').blur(); } catch (x) { /* 무시 */ }
+    });
+    $('#padEmptyTrash').addEventListener('click', padEmptyTrash);
+    $('#padNew').addEventListener('click', padNewNote);
+    // 메모 쓰기
+    $('#peBack').addEventListener('click', padBackBtn);
+    $('#peFolder').addEventListener('click', function () { if (PE.id) padPickOpen({ kind: 'note', id: PE.id }); });
+    $('#peFav').addEventListener('click', peFav);
+    $('#peDel').addEventListener('click', peTrash);
+    $('#peRestore').addEventListener('click', peRestore);
+    $('#peKill').addEventListener('click', peKill);
+    var t = $('#peTitle'), ed = $('#peBody');
+    t.addEventListener('input', peTouch);
+    t.addEventListener('blur', peSave);
+    t.addEventListener('keydown', function (e) {   // 제목에서 Enter → 내용으로
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); ed.focus(); }
+    });
+    ed.addEventListener('input', peTouch);
+    ed.addEventListener('blur', peSave);
+    ed.addEventListener('paste', function (e) {   // 붙여 넣을 때는 글자만
+      var cd = e.clipboardData || window.clipboardData; if (!cd) return;
+      e.preventDefault();
+      var text = String(cd.getData('text/plain') || cd.getData('Text') || '').replace(/\r\n?/g, '\n');
+      if (text) document.execCommand('insertText', false, text);
+    });
+    ed.addEventListener('drop', function (e) { e.preventDefault(); });
+    ed.addEventListener('beforeinput', function (e) {
+      var tp = e.inputType || '';
+      if (/^format/.test(tp) && tp !== 'formatBold') e.preventDefault();
+    });
+    ed.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        var k = String(e.key || '').toLowerCase();
+        if (k === 'b') { e.preventDefault(); peToggleBold(); }
+        else if (k === 'i' || k === 'u') e.preventDefault();
+      }
+    });
+    document.addEventListener('selectionchange', function () {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount && ed.contains(sel.anchorNode)) peRange = sel.getRangeAt(0).cloneRange();
+      if (S.view === 'pad' && S.pad.open) peBoldState();
+    });
+    var pb = $('#peBold');
+    pb.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    pb.addEventListener('click', peToggleBold);
+    // 폴더 만들기 창
+    $('#pfForm').addEventListener('submit', function (e) { e.preventDefault(); pfSubmit(); });
+    $('#pfColors').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-color]');
+      if (!b || !PF) return;
+      PF.color = b.dataset.color; renderPfColors();
+    });
+    // 옮길 곳 고르기 창
+    $('#ppList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-dest]');
+      if (b && !b.disabled) padMoveTo(b.dataset.dest);
+    });
+    document.addEventListener('click', function (e) {
+      if (!$('#padMenu').hidden && !e.target.closest('#padMenu') && !e.target.closest('#padMore')) padMenu(false);
+    });
+    window.addEventListener('popstate', padOnPop);
   }
 
   /* ───────── 동기화 표시 ───────── */
@@ -1983,17 +2810,19 @@
   }
 
   /* ───────── 화면 전환 ───────── */
-  var VIEWS = { day: '#dayView', month: '#monthView', memos: '#memosView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
+  var VIEWS = { day: '#dayView', month: '#monthView', pad: '#padView', memos: '#memosView', pending: '#pendingView', values: '#valuesView', font: '#fontView', help: '#helpView' };
   function showView(v) {
     flushInfo();
     if (v !== 'values') flushValues();
     if (v !== 'day') { flushRange(); flushNotes(); flushSched(); flushSpans(); closeSchedTools(); closeRange(); }
     if (v !== 'month') { closePaint(); closeDow(); }
+    if (S.view === 'pad' && v !== 'pad') padLeave();
     S.view = v;
     Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== v; });
     if (v === 'month') { subscribeSched(S.monthCursor); renderMonth(); }
     else if (S.store) subscribeSched(monthKey(S.date));
     if (v === 'memos') { subscribeMemos(); renderMemos(); } else unsubscribeMemos();
+    if (v === 'pad') { subscribePad(); padEnter(); }
     if (v === 'pending') renderPendingView();
     if (v === 'values') fillValues();
     if (v === 'font') renderFontView();
@@ -2003,7 +2832,8 @@
 
   function go(v) {
     closeDrawer();
-    if (v === 'day' && S.view === 'day') { setDate(today()); return; }
+    if (v === 'day' && (S.view === 'day' || (S.followToday && S.date !== today()))) { setDate(today()); return; }   // 메모장 등에 있는 동안 날짜가 바뀌었으면 오늘로
+    if (v === 'pad' && S.view === 'pad') { padLeave(); padEnter(); window.scrollTo(0, 0); return; }   // 메모장에서 다시 누르면 처음 화면으로
     if (v === 'month') S.monthCursor = monthKey(S.date);
     showView(v);
   }
@@ -2589,15 +3419,17 @@
     closeDrawer();
     toast('백업 파일을 준비하는 중…');
     S.store.exportAll().then(function (data) {
-      var payload = { app: 'my-planner', version: 1, exportedAt: new Date().toISOString(), tasks: data.tasks, days: data.days, profile: data.profile, spans: data.spans || [] };
+      var payload = { app: 'my-planner', version: 1, exportedAt: new Date().toISOString(), tasks: data.tasks, days: data.days, profile: data.profile, spans: data.spans || [],
+        pad: data.pad || { folders: [], notes: [] } };
+      var padN = payload.pad.notes ? payload.pad.notes.length : 0, padTxt = padN ? ', 메모장 메모 ' + padN + '개' : '';
       var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'planner-backup-' + today().replace(/-/g, '') + '.json';
       document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-      if (data.partial) toast('인터넷 연결이 없어, 이 기기에 내려받아 둔 내용만 저장했습니다. (할 일 ' + data.tasks.length + '개) 연결된 뒤 다시 저장하면 전체가 담깁니다.', null, null, 7000);
-      else toast('백업 파일을 저장했습니다. (할 일 ' + data.tasks.length + '개)');
+      if (data.partial) toast('인터넷 연결이 없어, 이 기기에 내려받아 둔 내용만 저장했습니다. (할 일 ' + data.tasks.length + '개' + padTxt + ') 연결된 뒤 다시 저장하면 전체가 담깁니다.', null, null, 7000);
+      else toast('백업 파일을 저장했습니다. (할 일 ' + data.tasks.length + '개' + padTxt + ')');
     }, function (e) { toast(describeError(e, 'export'), 'error'); });
   }
 
@@ -2608,7 +3440,9 @@
       var d;
       try { d = JSON.parse(reader.result); } catch (e) { toast('백업 파일을 읽지 못했습니다.', 'error'); return; }
       if (!d || d.app !== 'my-planner' || !Array.isArray(d.tasks)) { toast('이 앱의 백업 파일이 아닙니다.', 'error'); return; }
-      if (!window.confirm('백업 파일의 할 일 ' + d.tasks.length + '개와 일정·메모·사명을 불러올까요?\n같은 항목이 있으면 백업 내용으로 바뀝니다.')) return;
+      var padN = d.pad && Array.isArray(d.pad.notes) ? d.pad.notes.length : 0;
+      if (!window.confirm('백업 파일의 할 일 ' + d.tasks.length + '개와 일정·메모·사명' + (padN ? '·메모장 메모 ' + padN + '개' : '') + '를 불러올까요?\n같은 항목이 있으면 백업 내용으로 바뀝니다.')) return;
+      if (padN && !padOk()) toast('메모장은 store.js가 새 버전이어야 불러옵니다. 업데이트 파일을 모두 다시 올려 주세요.', 'error', null, 8000);
       S.store.importAll(d).then(function () { toast('불러왔습니다.'); });
     };
     reader.readAsText(file);
@@ -2665,7 +3499,7 @@
     closeDrawer();
     if (!FBA) return;
     if (!window.confirm('로그아웃할까요? 다시 로그인하면 내용이 그대로 나타납니다.')) return;
-    flushInfo(); flushNotes(); flushSched(); flushSpans(); flushValues();
+    flushInfo(); flushNotes(); flushSched(); flushSpans(); flushValues(); peSave();
     FBA.FB.signOut(FBA.auth);
   }
 
@@ -2699,7 +3533,12 @@
       var g = e.target.closest('[data-go]');
       if (g) { go(g.dataset.go); return; }
       var c = e.target.closest('[data-close]');
-      if (c) { if (c.dataset.close === 'drawer') closeDrawer(); else if (c.dataset.close === 'info') closeInfo(); else closeSheet(); }
+      if (c) {
+        var cl = c.dataset.close;
+        if (cl === 'drawer') closeDrawer(); else if (cl === 'info') closeInfo();
+        else if (cl === 'padfolder') closePadFolder(); else if (cl === 'padpick') closePadPick();
+        else closeSheet();
+      }
     });
 
     // 일정 정보 창: 적는 대로 저장, 칸을 떠나면 바로 저장
@@ -3064,6 +3903,10 @@
     // 키보드 (PC)
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        if (!$('#padFolderSheet').hidden) { closePadFolder(); return; }
+        if (!$('#padPickSheet').hidden) { closePadPick(); return; }
+        if (S.view === 'pad' && !$('#padMenu').hidden) { padMenu(false); return; }
+        if (S.view === 'pad' && S.pad.open && $('#drawer').hidden) { padBackBtn(); return; }
         if (infoTarget()) { closeInfo(); return; }
         if (!$('#sheet').hidden) { closeSheet(); return; }
         if (!$('#drawer').hidden) { closeDrawer(); return; }
@@ -3095,11 +3938,11 @@
 
     // 앱을 다시 열었을 때 날짜가 바뀌었으면 오늘로
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') { flushInfo(); flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); saveEditText(); return; }
-      if (S.followToday && S.date !== today() && S.store && !infoTarget()) setDate(today());
+      if (document.visibilityState === 'hidden') { flushInfo(); flushRange(); flushNotes(); flushSched(); flushSpans(); flushValues(); saveEditText(); peSave(); return; }
+      if (S.followToday && S.date !== today() && S.store && !infoTarget() && S.view !== 'pad') setDate(today());
       else { renderSched(); renderPendingBanner(); }
     });
-    window.addEventListener('pagehide', function () { flushInfo(); flushNotes(); flushSched(); flushSpans(); flushValues(); });
+    window.addEventListener('pagehide', function () { flushInfo(); flushNotes(); flushSched(); flushSpans(); flushValues(); peSave(); });
   }
 
   function saveDeleg() {
@@ -3112,7 +3955,7 @@
   /* 1분마다: 현재 시각 줄 표시, 자정이 지나면 오늘로 */
   function tick() {
     if (!S.store) return;
-    if (S.followToday && S.date !== today() && !infoTarget()) { setDate(today()); return; }
+    if (S.followToday && S.date !== today() && !infoTarget() && S.view !== 'pad') { setDate(today()); return; }
     var nowH = pad(new Date().getHours()), isToday = S.date === today();
     $$('#schedList .sched-row').forEach(function (row) { row.classList.toggle('now', isToday && row.dataset.h === nowH); });
   }
