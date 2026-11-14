@@ -502,7 +502,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.15';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.16';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -3414,7 +3414,7 @@
     var ph = ad ? (i ? '종일 일정 하나 더' : '예: 휴가, 출장, 생일') : '';
     return '<form class="sched-row' + (ad ? ' ad' : '') + '" data-h="' + h + '" autocomplete="off"' + (ad && i ? ' hidden' : '') + '>' +
       '<div class="hh">' + (ad ? '종일' : (+h) + '<small>시</small>') + '</div>' +
-      '<input type="text" data-h="' + h + '" aria-label="' + name + '" maxlength="200" enterkeyhint="done" autocomplete="off"' + (ph ? ' placeholder="' + ph + '"' : '') + '>' +
+      '<input type="text" data-h="' + h + '" aria-label="' + name + '" maxlength="200" enterkeyhint="done" autocomplete="off" spellcheck="false"' + (ph ? ' placeholder="' + ph + '"' : '') + '>' +
       (ad ? '<button type="button" class="per" data-per="' + h + '" aria-label="' + name + ' 기간 정하기 (며칠 동안 이어지는 일정)" title="기간 — 며칠 동안 이어지는 일정" hidden>기간</button>' : '') +
       infoBtnsHtml(h, name) +
       '<button type="button" class="sty" data-sty="' + h + '" aria-label="' + name + (ad ? ' 글자 색 · 테두리 색 · 진하게' : ' 글자 색 · 진하게') + '" title="' + (ad ? '글자 색 · 테두리 색 · 진하게' : '글자 색 · 진하게') + '" hidden><span>가</span></button>' +
@@ -3739,7 +3739,7 @@
   function spanRowEl(id) {
     var f = document.createElement('form');
     f.className = 'sched-row ad span'; f.dataset.span = id; f.setAttribute('autocomplete', 'off');
-    f.innerHTML = '<div class="hh">종일</div><input type="text" data-span="' + id + '" maxlength="200" enterkeyhint="done" autocomplete="off">' +
+    f.innerHTML = '<div class="hh">종일</div><input type="text" data-span="' + id + '" maxlength="200" enterkeyhint="done" autocomplete="off" spellcheck="false">' +
       '<button type="button" class="per" data-per="s:' + id + '" title="기간 바꾸기">기간</button>' +
       infoBtnsHtml('s:' + id, '종일 일정') +
       '<button type="button" class="sty" data-sty="s:' + id + '" aria-label="종일 일정 글자 색 · 테두리 색 · 진하게" title="글자 색 · 테두리 색 · 진하게"><span>가</span></button>' +
