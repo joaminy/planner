@@ -490,7 +490,7 @@
   /* ───────── 시작 ───────── */
   function boot() {
     window.__plannerBooted = true;
-    window.__plannerApp = 'v1.13';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
+    window.__plannerApp = 'v1.14';   // index.html이 app.js 버전이 맞는지 확인할 때 씀
     try { S.dowEach = cleanDowEach(JSON.parse(readPref('dowEach', '') || 'null'), okDow(S.dowColor) || ''); } catch (e) { S.dowEach = null; }
     applyFont(readPref('font', 'noto-sans'), readPref('fontAll', '0') === '1');
     applyTheme(readPref('theme', 'green'), readPref('themeColor', ''));
@@ -3693,13 +3693,7 @@
     var mk = S.monthCursor, p = mk.split('-'), y = +p[0], m = +p[1];
     $('#monthTitle').textContent = y + '년 ' + m + '월';
     var first = new Date(y, m - 1, 1).getDay(), days = lastDay(y, m), t0 = today();
-    var gt = $('#mGoToday'), gd = gt && $('.gt-d', gt);   // '오늘 페이지' 단추: 작은 달력에 오늘 날짜
-    if (gd) {
-      var tdt = parse(t0), tl = (tdt.getMonth() + 1) + '월 ' + tdt.getDate() + '일 ' + WD[tdt.getDay()] + '요일';
-      gd.textContent = String(tdt.getDate());
-      gt.setAttribute('aria-label', '오늘 페이지로 가기 (' + tl + ')');
-      gt.title = '오늘 페이지로 가기 — ' + tl;
-    }
+    paintTodayBtns();
     var cur = S.schedKey === mk;
     var map = cur ? S.sched : {}, smap = cur ? S.schedStyle : {}, bgs = cur ? S.dayBg : {};
     var items = allDayItems(map, smap, cur ? S.spans : [], mk + '-01', mk + '-' + pad(days)), accent = accentHex();
@@ -4253,6 +4247,7 @@
     if (v === 'values') fillValues();
     if (v === 'font') renderFontView();
     if (v === 'day') { renderHeader(); renderMiniCal(); }
+    paintTodayBtns();
     window.scrollTo(0, 0);
   }
 
@@ -4272,6 +4267,23 @@
     subscribeDay();
     subscribeSched(monthKey(d));
     renderHeader(); renderMiniCal(); renderPendingBanner();
+  }
+
+  /* '오늘 페이지' 단추 (월간 달력 맨 위 · 메모장 맨 위 · 휴대폰 메모 목록 막대): 언제 눌러도 오늘의 하루 페이지를 엶.
+     메모장에서 누르면 쓰던 메모를 저장하고 닫은 뒤 감 (showView → padLeave) */
+  function goTodayPage() {
+    if (S.view === 'day' && S.date === today()) return;
+    setDate(today());
+    window.scrollTo(0, 0);
+  }
+  function paintTodayBtns() {   // 단추의 작은 달력 그림에 오늘 날짜
+    var tdt = parse(today()), tl = (tdt.getMonth() + 1) + '월 ' + tdt.getDate() + '일 ' + WD[tdt.getDay()] + '요일';
+    $$('[data-today]').forEach(function (b) {
+      var d = $('.gt-d', b);
+      if (d && d.textContent !== String(tdt.getDate())) d.textContent = String(tdt.getDate());
+      b.setAttribute('aria-label', '오늘 페이지로 가기 (' + tl + ')');
+      b.title = '오늘 페이지로 가기 — ' + tl;
+    });
   }
 
   function setTab(tab) {
@@ -4959,6 +4971,8 @@
     document.addEventListener('click', function (e) {
       var g = e.target.closest('[data-go]');
       if (g) { go(g.dataset.go); return; }
+      var td = e.target.closest('[data-today]');   // '오늘 페이지' 단추 (월간 달력 맨 위 · 메모장, v1.14부터)
+      if (td) { if (!td.disabled) goTodayPage(); return; }
       var c = e.target.closest('[data-close]');
       if (c) {
         var cl = c.dataset.close;
@@ -5236,8 +5250,7 @@
     $('#mPrev').addEventListener('click', function () { shiftMonth(-1); });
     $('#mNext').addEventListener('click', function () { shiftMonth(1); });
     $('#mToday').addEventListener('click', function () { S.monthCursor = monthKey(today()); subscribeSched(S.monthCursor); renderMonth(); });
-    var mgt = $('#mGoToday');   // 월간 달력에서 오늘 페이지로 바로 가기 (v1.13부터)
-    if (mgt) mgt.addEventListener('click', function () { setDate(today()); });
+    // 월간 달력의 '오늘 페이지' 단추(#mGoToday)는 data-today로 위의 공통 처리에서 다룸 (v1.14부터 달력 맨 위)
 
     $('#btnPullAll').addEventListener('click', pullAllToToday);
     $('#btnPullAll2').addEventListener('click', pullAllToToday);
@@ -5390,6 +5403,7 @@
   /* 1분마다: 현재 시각 줄 표시, 자정이 지나면 오늘로 */
   function tick() {
     if (!S.store) return;
+    paintTodayBtns();   // 자정이 지나면 '오늘 페이지' 단추의 날짜도 바뀜
     if (S.followToday && S.date !== today() && !infoTarget() && S.view !== 'pad') { setDate(today()); return; }
     var nowH = pad(new Date().getHours()), isToday = S.date === today();
     $$('#schedList .sched-row').forEach(function (row) { row.classList.toggle('now', isToday && row.dataset.h === nowH); });
