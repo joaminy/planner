@@ -722,6 +722,44 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
 .gt-ic{position:relative;display:inline-grid;place-items:center;width:21px;height:21px;padding-top:5px;border:1.6px solid currentColor;border-radius:5px;line-height:1;flex:none}
 .gt-ic::before{content:'';position:absolute;left:-1px;right:-1px;top:-1px;height:6px;border-radius:4px 4px 0 0;background:currentColor}
 .gt-d{font-size:calc(10.5px * var(--fsu));font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+/* ── v1.15: 순서 바꾸기 (폴더 목록 위 · 메모 개수 오른쪽 단추, 순서 창) ── */
+.pad-fhead{flex-wrap:wrap;row-gap:0}
+.pad-fhead .pf-acts{display:inline-flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:0 2px;margin-left:auto}
+.pad-countrow{display:flex;align-items:center;gap:8px;margin:6px 2px 2px;min-height:30px}
+.pad-countrow .pad-count{flex:1;min-width:0;margin:0}
+.pad-countrow .linky{flex:none;display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--green);font-weight:700;font-size:calc(13.5px * var(--fsu));padding:5px 6px;border-radius:8px;white-space:nowrap}
+.pad-countrow .linky svg{width:16px;height:16px}
+.po-sheet .sheet-card{display:flex;flex-direction:column;overflow:hidden}
+.po-sheet .sheet-card:focus{outline:none}
+.po-help{margin:10px 0 8px;font-size:calc(13.5px * var(--fsu));line-height:1.55;color:var(--ink-2)}
+.po-list{flex:1 1 auto;min-height:120px;overflow:auto;overscroll-behavior:contain;border-top:1px solid var(--line)}
+.po-ol{list-style:none;margin:0;padding:0}
+.po-ol .po-ol{padding-left:24px}
+.po-ol .po-ol .po-ol .po-ol{padding-left:12px}   /* 아주 깊은 하위 폴더는 조금만 들여씀 (휴대폰에서 이름 자리가 남게) */
+.po-item{position:relative}
+.po-row{display:flex;align-items:center;gap:6px;min-height:52px;padding:0 2px;border-bottom:1px solid var(--line);background:var(--paper);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.po-grip{flex:none;display:grid;place-items:center;width:42px;height:46px;color:var(--ink-3);cursor:grab;touch-action:none;border-radius:9px}
+.po-grip svg{width:22px;height:22px}
+.po-grip.off{visibility:hidden}
+.po-row .fic{flex:none;width:22px;height:22px}
+.po-name{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
+.po-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(15px * var(--fsu));color:var(--ink)}
+.po-name small{flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(12px * var(--fsu));color:var(--ink-3)}
+.po-btn{flex:none;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid var(--line-2);border-radius:10px;background:#fff;color:var(--green)}
+.po-btn svg{width:17px;height:17px}
+.po-btn:disabled{opacity:.28;cursor:default}
+.po-item.po-drag{z-index:3}
+.po-item.po-drag>.po-row{border-radius:10px;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.po-dragging,.po-dragging .po-grip{cursor:grabbing}
+@keyframes poFlash{from{background:var(--green-tint)}to{background:var(--paper)}}
+.po-item.po-moved>.po-row{animation:poFlash .8s ease-out}
+.po-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (min-width:900px){
+  .po-sheet .sheet-card{max-height:min(720px,88vh)}
+  .po-btn:hover:not(:disabled){background:var(--green-tint)}
+  .po-grip:hover{background:var(--paper-2);color:var(--ink-2)}
+  .pad-countrow .linky:hover{background:var(--green-tint)}
+}
 /* 파일로 저장 메뉴 */
 .pe-savemenu{min-width:236px}
 .pe-savemenu small{float:right;margin-left:10px;color:var(--ink-3);font-size:calc(12px * var(--fsu));font-weight:700;letter-spacing:.04em}
@@ -1127,7 +1165,7 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
       <aside class="pad-side" aria-label="메모장 폴더">
         <div class="pad-head"><h2>메모장</h2><span class="en">Notes</span><button type="button" id="padGoToday" class="nav-btn go-today pad-today" data-today aria-label="오늘 페이지로 가기" title="오늘 페이지로 가기"><span class="gt-ic" aria-hidden="true"><span class="gt-d"></span></span><span class="gt-t">오늘<span class="gt-t2"> 페이지</span></span></button></div>
         <div id="padNav" class="pad-nav"></div>
-        <div class="pad-fhead"><span>폴더</span><button type="button" class="linky" id="padAddFolder">+ 새 폴더</button></div>
+        <div class="pad-fhead"><span>폴더</span><span class="pf-acts"><button type="button" class="linky" id="padOrderFolders" hidden>순서 바꾸기</button><button type="button" class="linky" id="padAddFolder">+ 새 폴더</button></span></div>
         <div id="padTree" class="pad-tree" role="tree" aria-label="폴더"></div>
         <div id="padNavEnd" class="pad-nav pad-nav-end"></div>
       </aside>
@@ -1162,8 +1200,8 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
               <div class="pvm-seg" role="group" aria-label="격자 크기"><button type="button" data-gsize="1" aria-pressed="false">작게</button><button type="button" data-gsize="2" aria-pressed="false">보통</button><button type="button" data-gsize="3" aria-pressed="false">크게</button><button type="button" data-gsize="4" aria-pressed="false">아주 크게</button></div>
             </div>
           </div>
-          <form id="padSearch" class="pad-search" role="search" autocomplete="off"><input id="padQ" type="search" placeholder="모든 메모에서 찾기" aria-label="메모 검색" enterkeyhint="search" autocomplete="off"><button type="button" id="padGoToday2" class="pad-today-ic" data-today aria-label="오늘 페이지로 가기" title="오늘 페이지로 가기"><span class="gt-ic" aria-hidden="true"><span class="gt-d"></span></span></button></form>
-          <span id="padCount" class="pad-count" aria-live="polite"></span>
+          <form id="padSearch" class="pad-search" role="search" autocomplete="off"><input id="padQ" type="search" placeholder="모든 메모에서 찾기" aria-label="메모 검색" enterkeyhint="search" autocomplete="off" spellcheck="false"><button type="button" id="padGoToday2" class="pad-today-ic" data-today aria-label="오늘 페이지로 가기" title="오늘 페이지로 가기"><span class="gt-ic" aria-hidden="true"><span class="gt-d"></span></span></button></form>
+          <div class="pad-countrow"><span id="padCount" class="pad-count" aria-live="polite"></span><button type="button" class="linky" id="padOrderNotes" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v15M4.5 7.5L8 4l3.5 3.5M16 20V5M12.5 16.5L16 20l3.5-3.5"/></svg><span>순서 바꾸기</span></button></div>
           <div id="padSubs" class="pad-subs" hidden></div>
           <div id="padTrashBar" class="pad-trashbar" hidden><span>휴지통의 메모는 직접 지울 때까지 남아 있습니다. 메모를 눌러 복원하거나 완전히 지울 수 있습니다.</span><button type="button" class="btn small danger" id="padEmptyTrash">휴지통 비우기</button></div>
           <div id="padList" class="pad-list" data-layout="grid"></div>
@@ -1198,9 +1236,9 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
             <button type="button" class="icon-btn pe-tool pib-del" id="pibDel" aria-label="그림 지우기" title="그림 지우기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
           </div>
           <div id="peTrash" class="pe-trash" hidden><span>휴지통에 있는 메모입니다. 고치려면 먼저 복원하십시오.</span><button type="button" class="btn small" id="peRestore">복원</button><button type="button" class="btn small danger" id="peKill">완전히 지우기</button></div>
-          <input id="peTitle" class="pe-title" type="text" maxlength="200" placeholder="제목" autocomplete="off" enterkeyhint="next" aria-label="제목">
+          <input id="peTitle" class="pe-title" type="text" maxlength="200" placeholder="제목" autocomplete="off" enterkeyhint="next" aria-label="제목" spellcheck="false" data-gramm="false">
           <div id="peMeta" class="pe-meta"></div>
-          <div id="peBody" class="pe-body is-empty" contenteditable="true" role="textbox" aria-multiline="true" aria-label="메모 내용" data-placeholder="내용을 적으세요. 적는 대로 저장됩니다. 캡처한 화면도 붙여 넣을 수 있습니다."></div>
+          <div id="peBody" class="pe-body is-empty" contenteditable="true" spellcheck="false" data-gramm="false" role="textbox" aria-multiline="true" aria-label="메모 내용" data-placeholder="내용을 적으세요. 적는 대로 저장됩니다. 캡처한 화면도 붙여 넣을 수 있습니다."></div>
           <div id="peImgFrame" class="pe-imgframe" aria-hidden="true" hidden><span class="pif-tag" id="pifTag" hidden></span><span class="pif-grip" id="pifGrip" title="끌어서 크기 바꾸기"></span></div>
         </div>
       </div>
@@ -1286,16 +1324,18 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
         <li><b>폴더 만들기</b> — 폴더 목록의 <b>+ 새 폴더</b>를 누르고 이름과 색을 고릅니다.</li>
         <li><b>하위 폴더</b> — 폴더를 연 뒤 <b>+ 하위 폴더</b>(또는 오른쪽 위 <b>⋮</b> → 하위 폴더 만들기)를 누르면 그 폴더 안에 폴더가 생깁니다. 하위 폴더 안에 또 폴더를 만들 수도 있습니다. 폴더 목록의 <b>›</b>를 누르면 하위 폴더가 펼쳐지거나 접힙니다.</li>
         <li><b>폴더 고치기</b> — 폴더를 연 뒤 <b>⋮</b>에서 이름·색 바꾸기, 다른 폴더로 옮기기, 폴더 지우기를 고릅니다. 폴더를 지우면 하위 폴더도 함께 지워지고, 안에 있던 메모는 휴지통으로 옮겨집니다(지운 직후 ‘되돌리기’로 되살릴 수 있습니다).</li>
-        <li><b>폴더 끌어서 옮기기</b> — 폴더 목록에서 폴더를 끌어(휴대폰은 꾹 누른 채 움직여) 다른 폴더의 <b>위·아래</b>에 놓으면 순서가 바뀌고, 다른 폴더의 <b>가운데</b>에 놓으면 그 폴더의 하위 폴더가 됩니다. ‘폴더’ 제목 줄에 놓으면 맨 위로 나옵니다. 끌어서 순서를 정하기 전에는 이름 순서로 보입니다.</li>
+        <li><b>폴더 순서 정하기</b> — 폴더 목록 위의 <b>순서 바꾸기</b>를 누르면 순서 창이 열립니다. 폴더 오른쪽의 <b>▲ · ▼</b>를 누르거나 왼쪽의 <b>≡</b>를 끌어(휴대폰은 손가락으로 누른 채 움직여) 순서를 정한 뒤 <b>완료</b>를 누릅니다. 하위 폴더는 같은 폴더 안에서만 옮겨집니다. 순서를 정하기 전에는 이름 순서로 보입니다. 잘못 옮겼으면 바로 나오는 알림의 <b>되돌리기</b>를 누릅니다.</li>
+        <li><b>폴더 끌어서 옮기기</b> — 폴더 목록에서 폴더를 끌어(휴대폰은 꾹 누른 채 움직여) 다른 폴더의 <b>위·아래</b>에 놓아도 순서가 바뀌고, 다른 폴더의 <b>가운데</b>에 놓으면 그 폴더의 하위 폴더가 됩니다. ‘폴더’ 제목 줄에 놓으면 맨 위로 나옵니다.</li>
         <li><b>메모 쓰기</b> — 오른쪽 아래의 <b>연필 단추</b>를 누릅니다. 지금 보고 있는 폴더에 새 메모가 생기고, 적는 대로 저장됩니다. 강조할 글자는 골라서 <b>B 진하게</b>를 누릅니다. 제목과 내용을 모두 비우고 나가면 그 메모는 남지 않습니다.</li>
         <li><b>캡처한 화면 붙여 넣기</b> — 화면을 캡처한 뒤(PC: Windows는 <b>Win+Shift+S</b>, Mac은 <b>Cmd+Ctrl+Shift+4</b>) 메모 안에서 <b>Ctrl+V</b>(Mac은 Cmd+V)를 누르면 그림이 메모 안에 그대로 들어갑니다. 그림 파일을 메모 위로 끌어다 놓거나, 메모 위쪽의 <b>그림 넣기</b> 단추로 사진·캡처 화면을 골라 넣을 수도 있습니다(휴대폰은 이 단추로 갤러리에서 고릅니다). 그림을 지우려면 그림을 눌러 나오는 막대의 <b>휴지통 단추</b>를 누르거나, 그림 바로 뒤에 커서를 두고 지우기(Backspace)를 누릅니다.</li>
         <li><b>그림 크기 바꾸기</b> — 메모 속 그림을 누르면(PC는 클릭) 그림에 테두리가 생기고, 위쪽 막대가 <b>그림 크기</b> 막대로 바뀝니다. <b>−</b> · <b>+</b>를 누르면 10%씩 작아지거나 커집니다. 그림 오른쪽 아래의 <b>동그란 손잡이</b>를 끌면(휴대폰은 손가락으로 누른 채 움직이면) 원하는 크기로 바꿀 수 있습니다. <b>꽉 차게</b>는 메모 폭에 꽉 차게, <b>원래 크기</b>는 처음 넣었을 때처럼 그림 자체의 크기로(메모 폭보다 크면 메모 폭에 맞춰) 되돌립니다. 막대의 %는 메모 폭에 대한 비율입니다. 그래서 PC와 휴대폰에서 같은 비율로 보이고, 파일로 저장할 때(PNG · PDF)도 그 크기로 나옵니다. 막대의 <b>휴지통 단추</b>는 그 그림을 지웁니다(지운 직후 ‘되돌리기’로 되살릴 수 있습니다). 끝내려면 그림 밖을 누르거나 왼쪽 위 <b>✕</b>(PC는 Esc)를 누릅니다.</li>
         <li><b>파일로 저장</b> — 메모 위쪽의 <b>저장 단추</b>(아래 화살표)를 누르고 <b>그림 파일(PNG)</b>, <b>PDF 파일</b>, <b>텍스트 파일(TXT)</b> 가운데 고르면 그 메모가 파일로 내려받아집니다. 텍스트 파일에는 그림 자리에 ‘[그림]’이라고 적힙니다.</li>
         <li><b>메모 옮기기 · 즐겨찾기</b> — 메모 위쪽의 폴더 이름을 누르면 다른 폴더로 옮길 수 있습니다. 목록에서 메모를 끌어 왼쪽 폴더 목록이나 하위 폴더 칸에 놓아도 옮겨집니다. <b>☆</b>를 누르면(또는 메모를 ‘즐겨찾기’에 끌어 놓으면) ‘즐겨찾기’에 모입니다.</li>
-        <li><b>메모 순서 정하기</b> — 목록에서 메모를 끌어(휴대폰은 꾹 누른 채 움직여) 다른 메모 사이에 놓으면 그 자리로 옮겨집니다. 이때 정렬이 <b>직접 정한 순서</b>로 바뀌고, 새 메모는 맨 앞에 나옵니다.</li>
+        <li><b>메모 순서 정하기</b> — 메모 목록 위, 메모 개수가 적힌 줄 오른쪽의 <b>순서 바꾸기</b>를 누르면, 지금 보고 있는 곳(모든 메모 · 즐겨찾기 · 폴더)의 메모가 순서 창에 나옵니다. <b>▲ · ▼</b>를 누르거나 <b>≡</b>를 끌어 순서를 정한 뒤 <b>완료</b>를 누릅니다. 이때 정렬이 <b>직접 정한 순서</b>로 바뀝니다. 잘못 옮겼으면 바로 나오는 알림의 <b>되돌리기</b>를 누릅니다. 목록에서 메모를 끌어(휴대폰은 꾹 누른 채 움직여) 다른 메모 사이에 놓아도 됩니다. 새 메모는 맨 앞에 나옵니다. 휴지통에 있을 때와 찾는 중에는 순서를 바꿀 수 없습니다.</li>
         <li><b>꾹 눌러 지우기 · 여러 개 고르기</b> — 메모를 꾹 누르면(PC는 마우스를 누르고 잠시 있거나 오른쪽 단추) 위쪽에 <b>삭제</b> · <b>옮기기</b> 단추가 나옵니다. 다른 메모를 누르면 함께 골라지고, <b>모두 선택</b>으로 한꺼번에 고를 수 있습니다. 끝내려면 왼쪽 위 <b>✕</b>(또는 휴대폰의 뒤로 가기)를 누릅니다.</li>
         <li><b>휴지통</b> — 메모 위쪽의 휴지통 단추를 누르거나, 메모를 꾹 눌러 <b>삭제</b>를 누르면 휴지통으로 옮겨집니다. 휴지통의 메모는 직접 지울 때까지 남아 있고, 눌러서 <b>복원</b>하거나 <b>완전히 지울</b> 수 있습니다.</li>
-        <li><b>찾기 · 보기 방식 · 격자 크기</b> — 검색 칸에 낱말을 적으면 지금 보고 있는 곳(폴더라면 하위 폴더까지)에서 찾습니다. 위의 <b>보기</b> 단추로 <b>격자</b>와 <b>목록</b> 보기를 바꾸고, 격자 크기를 <b>작게 · 보통 · 크게 · 아주 크게</b> 가운데 고릅니다(PC와 휴대폰은 따로 기억합니다). 정렬은 수정한 날짜·만든 날짜·제목·직접 정한 순서 가운데 고릅니다.</li>
+        <li><b>찾기 · 보기 방식 · 격자 크기</b> — 검색 칸에 낱말을 적으면 지금 보고 있는 곳(폴더라면 하위 폴더까지)에서 찾습니다. 위의 <b>보기</b> 단추로 <b>격자</b>와 <b>목록</b> 보기를 바꾸고, 격자 크기를 <b>작게 · 보통 · 크게 · 아주 크게</b> 가운데 고릅니다(PC와 휴대폰은 따로 기억합니다). 정렬은 수정한 날짜·만든 날짜·제목·직접 정한 순서 가운데 고르며, 고른 정렬은 PC와 휴대폰에 함께 적용됩니다.</li>
+        <li><b>맞춤법 밑줄</b> — 메모장(제목 · 내용 · 찾기 칸 · 폴더 이름)에서는 맞춤법 검사의 빨간 밑줄이 나오지 않습니다.</li>
       </ul>
       <p>휴대폰에서는 처음에 폴더 목록이 나오고, 폴더를 누르면 그 안의 메모가 나옵니다. 왼쪽 위 <b>‹</b>(또는 휴대폰의 뒤로 가기)로 한 단계씩 돌아갑니다. 동기화를 설정했다면 PC와 휴대폰에 함께 나타납니다.</p>
       <h3>월간 달력 · 주차</h3>
@@ -1319,7 +1359,7 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
       <p>설정 전(미리보기 모드)에는 지금 쓰는 기기에만 저장됩니다.</p>
       <h3>색깔 · 글꼴</h3>
       <p>메뉴(☰) → <b>색깔 · 글꼴 바꾸기</b>에서 플래너 색깔을 고릅니다. 13가지 색 가운데 고르거나 ‘직접 고르기’로 원하는 색을 정할 수 있습니다. 너무 밝은 색은 글씨가 잘 보이도록 조금 어둡게 바꿔 씁니다. 홈 화면의 앱 아이콘 색은 바뀌지 않습니다.</p>
-      <p>같은 화면에서 35가지 글꼴 가운데 하나를 고릅니다(고딕 12 · 명조 6 · 손글씨·개성 17, 이번에 더한 10가지에는 ‘새로 추가’ 표시). 할 일·일정·메모·사명처럼 직접 적는 글씨가 바뀌고, ‘제목·메뉴 글씨도 함께 바꾸기’를 켜면 앱 전체가 바뀝니다. 손글씨 글꼴은 같은 크기에서 작아 보이므로 조금 크게 표시합니다. 동기화를 설정했다면 고른 글꼴이 PC와 휴대폰에 함께 적용됩니다.</p>
+      <p>같은 화면에서 40가지 글꼴 가운데 하나를 고릅니다(고딕 15 · 명조 8 · 손글씨·개성 17, 이번에 더한 5가지에는 ‘새로 추가’ 표시). 프리텐다드 · 나눔스퀘어 · 마루 부리는 구글 글꼴이 아닌 jsDelivr 글꼴 서버에서 받습니다. 할 일·일정·메모·사명처럼 직접 적는 글씨가 바뀌고, ‘제목·메뉴 글씨도 함께 바꾸기’를 켜면 앱 전체가 바뀝니다. 손글씨 글꼴은 같은 크기에서 작아 보이므로 조금 크게 표시합니다. 동기화를 설정했다면 고른 글꼴이 PC와 휴대폰에 함께 적용됩니다.</p>
       <h3>백업</h3>
       <p>메뉴의 ‘백업 파일 저장’으로 모든 내용을 파일 하나로 내려받을 수 있습니다. ‘백업 파일 불러오기’로 다시 넣을 수 있습니다. 미리보기 모드에서 쓴 내용을 동기화 계정으로 옮길 때도 이 방법을 씁니다.</p>
       <h3>PC 단축키</h3>
@@ -1355,7 +1395,7 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
       <button id="btnImport"><span class="ic">↑</span>백업 파일 불러오기</button>
       <button id="btnLogout" hidden><span class="ic">⎋</span>로그아웃</button>
     </nav>
-    <div class="drawer-foot">나의 플래너 v1.14</div>
+    <div class="drawer-foot">나의 플래너 v1.15</div>
   </div>
 </aside>
 <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -1438,7 +1478,7 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
     <div class="sheet-head"><span id="pfTitle" class="t">새 폴더</span><button type="button" class="btn small" data-close="padfolder">닫기</button></div>
     <form id="pfForm" autocomplete="off">
       <p id="pfWhere" class="pf-where"></p>
-      <label class="field"><span class="flbl">폴더 이름</span><input id="pfName" class="text-in" type="text" maxlength="40" enterkeyhint="done" autocomplete="off" aria-label="폴더 이름"></label>
+      <label class="field"><span class="flbl">폴더 이름</span><input id="pfName" class="text-in" type="text" maxlength="40" enterkeyhint="done" autocomplete="off" aria-label="폴더 이름" spellcheck="false"></label>
       <p id="pfErr" class="pf-err" role="alert"></p>
       <div class="field"><span class="flbl" id="pfColorLbl">폴더 색</span><div id="pfColors" class="pf-colors" role="radiogroup" aria-labelledby="pfColorLbl"></div></div>
       <div class="sheet-foot"><button type="button" class="btn" data-close="padfolder">취소</button><span class="sf-r"><button type="submit" class="btn primary" id="pfOk">만들기</button></span></div>
@@ -1454,6 +1494,19 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
     <div class="sheet-head"><span id="ppTitle" class="t">옮길 폴더 고르기</span><button type="button" class="btn small" data-close="padpick">닫기</button></div>
     <p id="ppWhat" class="pp-what"></p>
     <div id="ppList" class="pp-list"></div>
+  </div>
+</div>
+
+<!-- ===== 메모장: 순서 바꾸기 (v1.15부터) ===== -->
+<div id="padOrderSheet" class="sheet pad-sheet po-sheet" hidden>
+  <div class="backdrop" data-close="padorder"></div>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="poTitle" tabindex="-1">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><span id="poTitle" class="t">메모 순서 바꾸기</span><button type="button" class="btn small" data-close="padorder">닫기</button></div>
+    <p id="poHelp" class="po-help"></p>
+    <div id="poList" class="po-list"></div>
+    <p id="poLive" class="po-live" aria-live="polite"></p>
+    <div class="sheet-foot"><button type="button" class="btn" data-close="padorder">취소</button><span class="sf-r"><button type="button" class="btn primary" id="poOk">완료</button></span></div>
   </div>
 </div>
 
@@ -1505,7 +1558,7 @@ html.pimg-dragging,html.pimg-dragging *{cursor:nwse-resize!important;-webkit-use
     setTimeout(function () { if (!window.__plannerBooted) fail(''); }, 8000);
     /* index.html만 새 버전이고 app.js가 예전 버전이면, 메모가 저장되지 않을 수 있으므로 쓰기 전에 막고 안내 */
     function versionCheck() {
-      if (window.__plannerApp === 'v1.14' || document.getElementById('versionGuard')) return;
+      if (window.__plannerApp === 'v1.15' || document.getElementById('versionGuard')) return;
       var app = document.getElementById('app'), login = document.getElementById('login');
       if (!(window.__plannerBooted || (app && !app.hidden) || (login && !login.hidden))) return;   // app.js가 아직 시작 전
       var o = document.createElement('div');
